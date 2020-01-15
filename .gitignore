@@ -1,0 +1,16 @@
+
+.settings/
+.project
+.classpath
+
+
+.idea/
+/idea/
+*.ipr
+*.iml
+*.iws
+
+__pycache__/
+.DS_Store
+*.pyc
+
