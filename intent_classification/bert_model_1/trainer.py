@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from transformers import BertConfig, AdamW, get_linear_schedule_with_warmup
+from tensorboardX import SummaryWriter
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,11 @@ class Trainer(object):
         logger.info("  Logging steps = %d", self.args.logging_steps)
         logger.info("  Save steps = %d", self.args.save_steps)
 
+        witer = SummaryWriter(logdir=self.args.model_dir, comment="BERT_intent")
+
         global_step = 0
         tr_loss = 0.0
+        best_mean_precision = 0.0
         self.model.zero_grad()
 
         train_iterator = trange(int(self.args.num_train_epochs), desc="Epoch")
@@ -102,14 +106,27 @@ class Trainer(object):
                     global_step += 1
 
                     if self.args.logging_steps > 0 and global_step % self.args.logging_steps == 0:
-                        self.evaluate('dev')
+                        eval_results = self.evaluate('dev')
+
+                    witer.add_scalar("Test/loss", eval_results.get("loss", 0), global_step)
+                    labels = ["0", "10001", "10002"]
+                    for k in labels:
+                        witer.add_scalar("Test/{}".format(k), eval_results.get(k, {}).get("precision", 0), global_step)
+                        witer.add_scalar("Test/{}".format(k), eval_results.get(k, {}).get("recall", 0), global_step)
+                        witer.add_scalar("Test/{}".format(k), eval_results.get(k, {}).get("f1", 0), global_step)
 
                     if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
-                        self.save_model()
+                        if eval_results.get("mean", {}).get("mean_precision", 0) > best_mean_precision:
+                            best_mean_precision = eval_results.get("mean", {}).get("mean_precision", 0)
+                            self.save_model()
 
                 if 0 < self.args.max_steps < global_step:
                     epoch_iterator.close()
                     break
+
+                witer.add_scalar("Train/loss", tr_loss/global_step, global_step)
+                lr = scheduler.get_lr()[-1]
+                witer.add_scalar("Train/lr", lr, global_step)
 
             if 0 < self.args.max_steps < global_step:
                 train_iterator.close()

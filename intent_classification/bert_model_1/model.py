@@ -39,9 +39,9 @@ class SelfAttention(nn.Module):
     def __init__(self, sentence_num=0, key_size=0, hidden_size=0, attn_dropout=0.1):
 
         super(SelfAttention, self).__init__()
-        self.linear_k = nn.Linear(sentence_num, key_size, bias=False)
-        self.linear_q = nn.Linear(sentence_num, key_size, bias=False)
-        self.linear_v = nn.Linear(sentence_num, hidden_size, bias=False)
+        self.linear_k = nn.Linear(hidden_size, key_size, bias=False)
+        self.linear_q = nn.Linear(hidden_size, key_size, bias=False)
+        self.linear_v = nn.Linear(hidden_size, hidden_size, bias=False)
         self.dim_k = np.power(key_size, 0.5)
         self.softmax = nn.Softmax(1)
         self.dropout = nn.Dropout(attn_dropout)
@@ -86,10 +86,10 @@ class BertDialogueIntentClassification(BertPreTrainedModel):
         self.args = args
 
         self.sentence_num = self.args.sentence_num
-        self.key_size = 120
+        self.key_size = 768
 
         self.hidden_size = config.hidden_size
-        self.label_num = len(self.config.id2label)
+        self.label_num = len(self.args.id_labels)
 
         self.bert = BertModel(config=config)  # Load pretrained bert
         self.att = SelfAttention(sentence_num=self.sentence_num, key_size=self.key_size, hidden_size=self.hidden_size)
@@ -134,7 +134,7 @@ class BertDialogueIntentClassification(BertPreTrainedModel):
         pooled_output = outputs[1]  # [CLS]  [batch_size, embedding_size]
 
         # Average
-        present_h = self.present_average(sequence_output, present_mask)
+        present_h = self.present_average(sequence_output, present_mask)  # [batch_size, embedding_size]
 
         # [SEP]
         seq_vec = self.get_sep_vec(sequence_output, sep_masks)  # [batch_size, sentence_num, embedding_size]
@@ -153,14 +153,14 @@ class BertDialogueIntentClassification(BertPreTrainedModel):
         logits = self.fc(out)
 
         if labels is not None:
-            if self.num_labels == 1:
+            if self.label_num == 1:
                 # loss_fct = nn.MSELoss()
                 # loss = loss_fct(logits.view(-1), labels.view(-1))
                 loss = self.loss_fct_ms(logits.view(-1), labels.view(-1))
             else:
                 # loss_fct = nn.CrossEntropyLoss()
-                # loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-                loss = self.loss_fct_cros(logits.view(-1, self.num_labels), labels.view(-1))
+                # loss = loss_fct(logits.view(-1, self.label_num), labels.view(-1))
+                loss = self.loss_fct_cros(logits.view(-1, self.label_num), labels.view(-1))
 
             outputs = (loss,) + logits
 

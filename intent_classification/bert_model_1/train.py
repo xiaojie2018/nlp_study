@@ -16,6 +16,7 @@ import numpy as np
 import json
 import os
 import codecs
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 init_logger()
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,6 @@ class BertIntentTrainModelHandler:
 
         config_params.update(config_params.get("hyper_param", {}))
         self.config = Namespace(**config_params)
-        self.config.task = "atis"
         self.config.no_cuda = False
         self.config.use_crf = False
         self.config.model_name_or_path = "E:\\nlp_tools\\bert_models\\bert-base-chinese"
@@ -93,7 +93,7 @@ class BertIntentTrainModelHandler:
                 d1.append(l11)
             data.append(d1)
 
-        max_seq_len = self.config.max_seq_len
+        max_seq_len = self.config.max_seq_len - 5
         data1 = []
         labels = []
         for d in data:
@@ -135,7 +135,7 @@ class BertIntentTrainModelHandler:
             tokens = []
             token_type_ids = []
 
-            for i, t in example(tokens1):
+            for i, t in enumerate(tokens1):
                 tokens += t
                 # Add [SEP] token
                 tokens += [sep_token]
@@ -156,10 +156,10 @@ class BertIntentTrainModelHandler:
             attention_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
 
             # sep_mask   :find the sep token
-            sep_token_id = tokenizer.convert_tokens_to_ids(sep_token)[0]
+            sep_token_id = tokenizer.convert_tokens_to_ids(sep_token)
 
             sep_mask_ids = []
-            for i, x in example(input_ids):
+            for i, x in enumerate(input_ids):
                 if x == sep_token_id:
                     sep_mask_ids.append(i)
             sep_masks = []
@@ -290,7 +290,7 @@ class BertIntentTrainModelHandler:
         self.config.id_labels = self.id_labels
 
         with codecs.open(os.path.join(self.model_save_path, 'config.json'), 'w', encoding='utf-8') as fd:
-            json.dump(self.config, fd, indent=4, ensure_ascii=False)
+            json.dump(vars(self.config), fd, indent=4, ensure_ascii=False)
 
         self.trainer = Trainer(self.config,
                                train_dataset=self.train_data,
@@ -331,7 +331,7 @@ if __name__ == '__main__':
             "ignore_index": 0,
             "do_train": True,
             "do_eval": True,
-            "sentence_num": 3,
+            "sentence_num": 2,
             "is_heading": True
         },
         "train_file_url": ["D:\\nlp_tools\\nlp-platform\\model\\slot_intent\\dev.json"],
