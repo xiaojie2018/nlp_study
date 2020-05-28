@@ -93,7 +93,7 @@ class BertIntentTrainModelHandler:
                 d1.append(l11)
             data.append(d1)
 
-        max_seq_len = self.config.max_seq_len - 5
+        max_seq_len = self.config.max_seq_len - 2*self.config.sentence_num - 1
         data1 = []
         labels = []
         for d in data:
@@ -332,7 +332,12 @@ if __name__ == '__main__':
             "do_train": True,
             "do_eval": True,
             "sentence_num": 2,
-            "is_heading": True
+            "is_heading": True,
+            "train_feq_num": 7,
+            "is_attention": False,
+            "is_lstm": False,
+            "is_cnn": False
+
         },
         "train_file_url": ["D:\\nlp_tools\\nlp-platform\\model\\slot_intent\\dev.json"],
         "job_name": "dialog_intent_classification"

@@ -79,6 +79,58 @@ class FCLayer(nn.Module):
         return self.softmax(self.linear(x))
 
 
+class FCLayer1(nn.Module):
+    def __init__(self, input_dim, output_dim, dropout_rate=0., use_activation=True):
+        super(FCLayer1, self).__init__()
+        self.use_activation = use_activation
+        self.dropout = nn.Dropout(dropout_rate)
+        self.linear = nn.Linear(input_dim, output_dim)
+        self.tanh = nn.Tanh()
+
+    def forward(self, x):
+        x = self.dropout(x)
+        if self.use_activation:
+            x = self.tanh(x)
+        return self.linear(x)
+
+
+class CNNLayer1(nn.Module):
+
+    def __init__(self, embedding_size, kernel_num, kernel_size, output_size, max_seq_len):
+        super(CNNLayer1, self).__init__()
+        self.embedding_size = embedding_size
+        self.kernel_num = kernel_num
+        self.kernel_size = kernel_size
+        self.output_size = output_size
+        self.max_seq_len = max_seq_len
+        self.max_pool_size = [max_seq_len - ks + 1 for ks in kernel_size]
+        self.ac = nn.Tanh()
+        self.fc1 = FCLayer1(self.kernel_num*len(self.kernel_size), (self.kernel_num*len(self.kernel_size))//2)
+        self.fc2 = FCLayer1((self.kernel_num*len(self.kernel_size))//2, output_size)
+
+        self.cnn = []
+        self.max_pool = []
+        for ks, mps in zip(self.kernel_size, self.max_pool_size):
+            self.cnn.append(nn.Conv1d(in_channels=self.embedding_size, out_channels=kernel_num, kernel_size=ks))
+
+            self.max_pool.append(nn.MaxPool1d(mps))
+
+    def forward(self, x):
+        output = []
+        for cnn_, max_pool_ in zip(self.cnn, self.max_pool):
+            out = cnn_(x)
+            out = self.ac(out)
+            out = max_pool_(out)
+            output.append(out.squeeze(-1))
+
+        output1 = torch.cat(output, dim=-1)
+
+        output1 = self.fc1(output1)
+        output1 = self.fc2(output1)
+
+        return output1
+
+
 class BertDialogueIntentClassification(BertPreTrainedModel):
 
     def __init__(self, config, args):
@@ -86,6 +138,15 @@ class BertDialogueIntentClassification(BertPreTrainedModel):
         self.args = args
 
         self.sentence_num = self.args.sentence_num
+
+        self.is_attention = self.args.is_attention
+        self.is_lstm = self.args.is_lstm
+        self.if_cnn = self.args.is_cnn
+        self.kernel_num = 300
+        self.kernel_size = [3, 4, 5]
+        self.output_size = 768
+        self.max_seq_len = self.args.max_seq_len
+
         self.key_size = 768
 
         self.hidden_size = config.hidden_size
@@ -93,10 +154,21 @@ class BertDialogueIntentClassification(BertPreTrainedModel):
 
         self.bert = BertModel(config=config)  # Load pretrained bert
         self.att = SelfAttention(sentence_num=self.sentence_num, key_size=self.key_size, hidden_size=self.hidden_size)
+        self.att1 = SelfAttention(sentence_num=self.max_seq_len, key_size=self.key_size, hidden_size=self.hidden_size)
         #  LSTM 以 word_embeddings 作为输入, 输出维度为 hidden_dim 的隐状态值
         self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, 1)  # [embeddings_size, hidden_dim, layer_num]
 
+        self.lstm2 = nn.LSTM(self.hidden_size, self.hidden_size, 1, bidirectional=True)  # [embeddings_size, hidden_dim, layer_num]
+
         self.fc = FCLayer(self.hidden_size*3, self.label_num)
+
+        self.fc1 = FCLayer(self.hidden_size, self.label_num)
+
+        self.fc2 = FCLayer(self.hidden_size*2, self.label_num)
+        self.fc3 = FCLayer1(self.max_seq_len, 1)
+        self.fc4 = FCLayer1(self.hidden_size*2, self.hidden_size)
+
+        self.cnn1 = CNNLayer1(self.hidden_size, self.kernel_num, self.kernel_size, self.output_size, self.max_seq_len)
 
         self.loss_fct_ms = nn.MSELoss()
         self.loss_fct_cros = nn.CrossEntropyLoss()
@@ -133,35 +205,79 @@ class BertDialogueIntentClassification(BertPreTrainedModel):
         sequence_output = outputs[0]  # [batch_size, max_sen_len, embedding_size]
         pooled_output = outputs[1]  # [CLS]  [batch_size, embedding_size]
 
-        # Average
-        present_h = self.present_average(sequence_output, present_mask)  # [batch_size, embedding_size]
+        if self.sentence_num == 1:
 
-        # [SEP]
-        seq_vec = self.get_sep_vec(sequence_output, sep_masks)  # [batch_size, sentence_num, embedding_size]
+            if self.is_cnn and self.is_lstm:
 
-        # attention
-        seq_vec = self.att(seq_vec)
+                pass
 
-        # lstm
-        out, _ = self.lstm(seq_vec.transpose(0, 1))
-        out = out[-1::]
-        out = out.transpose(0, 1)
-        out = out.squeeze(1)
+            elif self.is_cnn:
+                out1 = self.cnn1(sequence_output.transpose(1, 2))
+                out = torch.cat([pooled_output, out1], dim=-1)
+                logits = self.fc2(out)
 
-        # W(cls + lstm) + b
-        out = torch.cat([pooled_output, out, present_h], dim=-1)
-        logits = self.fc(out)
+            elif self.is_lstm:
+                out1 = self.lstm2(sequence_output)
+                out1 = self.fc3(out1.transpose(1, 2))
+                out1 = self.fc4(out1.squeeze(-1))
 
-        if labels is not None:
-            if self.label_num == 1:
-                # loss_fct = nn.MSELoss()
-                # loss = loss_fct(logits.view(-1), labels.view(-1))
-                loss = self.loss_fct_ms(logits.view(-1), labels.view(-1))
+                out = torch.cat([pooled_output, out1], dim=-1)
+                logits = self.fc2(out)
+
+            elif self.is_attention:
+                out1, _ = self.att1(sequence_output)
+                out1 = self.fc3(out1.transpose(1, 2))
+
+                out = torch.cat([pooled_output, out1.squeeze(-1)], dim=-1)
+                logits = self.fc2(out)
+
             else:
-                # loss_fct = nn.CrossEntropyLoss()
-                # loss = loss_fct(logits.view(-1, self.label_num), labels.view(-1))
-                loss = self.loss_fct_cros(logits.view(-1, self.label_num), labels.view(-1))
+                out = pooled_output
 
-            outputs = (loss,) + logits
+                logits = self.fc1(out)
+
+            if labels is not None:
+                if self.label_num == 1:
+                    # loss_fct = nn.MSELoss()
+                    # loss = loss_fct(logits.view(-1), labels.view(-1))
+                    loss = self.loss_fct_ms(logits.view(-1), labels.view(-1))
+                else:
+                    # loss_fct = nn.CrossEntropyLoss()
+                    # loss = loss_fct(logits.view(-1, self.label_num), labels.view(-1))
+                    loss = self.loss_fct_cros(logits.view(-1, self.label_num), labels.view(-1))
+
+                outputs = (loss,) + logits
+
+        if self.sentence_num >= 2:
+            # Average
+            present_h = self.present_average(sequence_output, present_mask)  # [batch_size, embedding_size]
+
+            # [SEP]
+            seq_vec = self.get_sep_vec(sequence_output, sep_masks)  # [batch_size, sentence_num, embedding_size]
+
+            # attention
+            seq_vec = self.att(seq_vec)
+
+            # lstm
+            out, _ = self.lstm(seq_vec.transpose(0, 1))
+            out = out[-1::]
+            out = out.transpose(0, 1)
+            out = out.squeeze(1)
+
+            # W(cls + lstm) + b
+            out = torch.cat([pooled_output, out, present_h], dim=-1)
+            logits = self.fc(out)
+
+            if labels is not None:
+                if self.label_num == 1:
+                    # loss_fct = nn.MSELoss()
+                    # loss = loss_fct(logits.view(-1), labels.view(-1))
+                    loss = self.loss_fct_ms(logits.view(-1), labels.view(-1))
+                else:
+                    # loss_fct = nn.CrossEntropyLoss()
+                    # loss = loss_fct(logits.view(-1, self.label_num), labels.view(-1))
+                    loss = self.loss_fct_cros(logits.view(-1, self.label_num), labels.view(-1))
+
+                outputs = (loss,) + logits
 
         return outputs  # (loss), logits
