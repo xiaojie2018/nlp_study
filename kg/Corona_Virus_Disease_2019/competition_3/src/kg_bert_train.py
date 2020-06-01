@@ -46,13 +46,17 @@ class KGBertEmbeddingTrainModelHandler(KGDataProcess):
 
     def data_process(self):
         # 获取正负样本
-        self.triple_data = self.read_relationships(relationships_file)
+        # self.triple_data = self.read_relationships(relationships_file)
 
-        random.shuffle(self.triple_data)
+        # random.shuffle(self.triple_data)
 
-        train_len = int(len(self.triple_data) * 0.7)
-        train_data_ = self.triple_data[:train_len]
-        test_data_ = self.triple_data[train_len:]
+        # train_len = int(len(self.triple_data)*0.7)
+        # train_data_ = self.triple_data[:train_len]
+        # test_data_ = self.triple_data[train_len:]
+        train_file = './data/train_0.pkl'
+        test_file = './data/test_0.pkl'
+        train_data_ = self.gen_data(train_file)[:100]
+        test_data_ = self.gen_data(test_file)[:100]
 
         self.train_data = self._get_data(train_data_, "train")
 
@@ -94,12 +98,12 @@ if __name__ == '__main__':
             "data_dir": "./data",
             "model_type": "bert",
             "seed": 1234,
-            "train_batch_size": 8,
-            "eval_batch_size": 8,
-            "max_seq_len1": 64,
+            "train_batch_size": 32,
+            "eval_batch_size": 32,
+            "max_seq_len": 90,
             "max_seq_len2": 256,
             "learning_rate": 5e-5,
-            "num_train_epochs": 20,
+            "num_train_epochs": 5,  # 5， 20
             "weight_decay": 0.0,
             "gradient_accumulation_steps": 1,
             "adam_epsilon": 1e-8,
@@ -107,8 +111,8 @@ if __name__ == '__main__':
             "max_steps": -1,
             "warmup_steps": 0,
             "dropout_rate": 0.1,
-            "logging_steps": 200,
-            "save_steps": 200,
+            "logging_steps": 2000,
+            "save_steps": 2000,
             "neg_num": 5,
             "no_cuda": False,
             "ignore_index": 0,
@@ -119,7 +123,7 @@ if __name__ == '__main__':
             "ntn": False
         },
         "train_file_url": [],
-        "job_name": "kg_bert_"
+        "job_name": "kg_bert_0"
     }
 
     bt = KGBertEmbeddingTrainModelHandler(config_params)
