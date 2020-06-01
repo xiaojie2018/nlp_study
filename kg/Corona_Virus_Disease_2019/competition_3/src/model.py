@@ -43,7 +43,7 @@ class SelfAttention(nn.Module):
 
 
 class FCLayer(nn.Module):
-    def __init__(self, input_dim, output_dim, dropout_rate=0.5, use_activation=False):
+    def __init__(self, input_dim, output_dim, dropout_rate=0.1, use_activation=False):
         super(FCLayer, self).__init__()
         self.use_activation = use_activation
         self.dropout = nn.Dropout(dropout_rate)
@@ -71,6 +71,7 @@ class KGBrtEmbedding(BertPreTrainedModel):
         self.hidden_size = config.hidden_size
         self.key_size = self.hidden_size
         self.sentence_num = 3
+        self.label_num = 1
 
         self.fc = FCLayer(self.hidden_size, 1)
         self.att = SelfAttention(sentence_num=self.sentence_num, key_size=self.key_size, hidden_size=self.hidden_size)
@@ -108,16 +109,16 @@ class KGBrtEmbedding(BertPreTrainedModel):
 
     def forward(self, input_ids, attention_mask, token_type_ids, sep_masks, label):
         outputs = self.bert(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # sequence_output, pooled_output, (hidden_states), (attentions)
-        sequence_output = outputs[0]  # [batch_size, max_sen_len1, embedding_size]
+        sequence_output = outputs[0]  # [batch_size, max_sen_len, embedding_size]
         pooled_output = outputs[1]  # [CLS]  [batch_size, embedding_size]
 
         # [SEP]
-        # seq_vec = self.get_sep_vec(sequence_output.transpose(0, 1), sep_masks)  # [batch_size, sentence_num, embedding_size]
+        # seq_vec1 = self.get_sep_vec(sequence_output, sep_masks)  # [batch_size, sentence_num, embedding_size]
 
         # attention
-        # seq_vec = self.att(seq_vec)
+        # seq_vec = self.att(seq_vec1)
 
-        # lstm_output, (hn, cn) = self.bilstm(sequence_output.transpose(0, 1))  # [batch_size, max_sen_len1, 2*embedding_size]
+        # lstm_output, (hn, cn) = self.bilstm(seq_vec1.transpose(0, 1))  # [sentence_num, batch_size, 2*embedding_size]
 
         logits = self.fc(pooled_output)  # [batch_size, 1]
 

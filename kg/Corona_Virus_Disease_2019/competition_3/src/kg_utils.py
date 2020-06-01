@@ -44,9 +44,9 @@ class InputExample(object):
 
     def __init__(self, guid, head, relation, tail, label=None):
         self.guid = guid
-        self.text1 = head
-        self.mask1 = relation
-        self.text2 = tail
+        self.head = head
+        self.relation = relation
+        self.tail = tail
         self.label = label
 
     def __repr__(self):
@@ -181,28 +181,68 @@ class KGDataProcess(DataProcess):
         tokenizer.add_special_tokens({"additional_special_tokens": self.ADDITIONAL_SPECIAL_TOKENS})
         return tokenizer
 
-    def read_relationships(self, file):
-        with open(file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return data["relationships"]
+    def gen_data(self, file):
+        self.entities = self.read_all_entity(entities_file)
+        self.triple, entities1 = self.read_relationships(relationships_file)
+        self.attrs = self.read_attrs(attrs_file)
+        self.virus2sequence = self.read_virus2sequence(virus2sequence_file)
+        self.test_data = self.read_test_data(link_prediction_file)
 
-    def read_all_entity(self, file):
-        with open(file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            data['all'] = data["Virus"] + data["Drug"] + data["Protein"]
-            return data
+        self.entity_type = {}
+        for k, v in self.entities.items():
+            if k == "all":
+                continue
+            for v1 in v:
+                self.entity_type[v1] = k
 
-    def read_attrs(self, file):
-        with open(file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            res = {k[0]: k for k in data["attrs"]}
-            return res
+        import pickle
+        with open(file, 'rb') as f:
+            data = pickle.load(f)
 
-    # def get_train_data(self):
-    #     self.entities = self.read_all_entity(entities_file)
-    #     self.triple = self.read_relationships(relationships_file)
-    #     self.attrs = self.read_attrs(attrs_file)
-    #     print(1)
+        # 假如特殊字符 <e1> </e1>
+        # self.ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
+
+        # 假如属性
+
+        # 假如类别
+        res = []
+        res_len = []
+        for d in data:
+            e1 = d[0]
+            e2 = d[2]
+            e11 = e1.split('_')[0] + "_" + self.ADDITIONAL_SPECIAL_TOKENS[0] + e1.split("_")[1] + self.ADDITIONAL_SPECIAL_TOKENS[1]
+            e22 = e2.split('_')[0] + "_" + self.ADDITIONAL_SPECIAL_TOKENS[2] + e2.split("_")[1] + self.ADDITIONAL_SPECIAL_TOKENS[3]
+
+            e11 += ", type: {}".format(self.entity_type[e1])
+            e22 += ", type: {}".format(self.entity_type[e2])
+
+            # if e1 in self.attrs:
+            #     xe1 = self.attrs[e1][1:]
+            #     xe10 = []
+            #     xe10.append(xe1[0])
+            #     if isinstance(xe1[1], list):
+            #         xe10.append(','.join(xe1[1]))
+            #     else:
+            #         xe10.append(xe1[1])
+            #
+            #     e11 += ", " + ": ".join(xe10)
+            # if e2 in self.attrs:
+            #     xe1 = self.attrs[e2][1:]
+            #     xe10 = []
+            #     xe10.append(xe1[0])
+            #     if isinstance(xe1[1], list):
+            #         xe10.append(','.join(xe1[1]))
+            #     else:
+            #         xe10.append(xe1[1])
+
+            res.append([e11.lower(), d[1], e22.lower(), d[-1]])
+            res_len.append(len(e11.lower() + d[1] + e22.lower()))
+
+        print("max_len: ", max(res_len))
+        print("min_len: ", min(res_len))
+        print("meas: ", sum(res_len)/len(res_len))
+
+        return res
 
     def _get_data(self, data, set_type="train"):
         """
@@ -215,7 +255,7 @@ class KGDataProcess(DataProcess):
         if set_type == "train":
             random.shuffle(data)
         logger.info("----- {} data num: {} ------".format(set_type, len(data)))
-        for i, d in enumerate(data):
+        for i, d in tqdm(enumerate(data)):
             head_entity = d[0]
             relation = d[1]
             tail_entity = d[2]
@@ -227,7 +267,7 @@ class KGDataProcess(DataProcess):
 
         pad_token_label_id = self.config.ignore_index
         features = self.convert_examples_to_features(examples,
-                                                     self.config.max_seq_len1,
+                                                     self.config.max_seq_len,
                                                      self.tokenizer,
                                                      pad_token_label_id=pad_token_label_id)
 
@@ -235,9 +275,10 @@ class KGDataProcess(DataProcess):
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
         all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
+        all_sep_masks = torch.tensor([f.sep_masks for f in features], dtype=torch.long)
         all_label_ids = torch.tensor([f.label for f in features], dtype=torch.float)
 
-        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label_ids)
+        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_sep_masks, all_label_ids)
         return dataset
 
     def convert_examples_to_features(self, examples, max_seq_len, tokenizer,
