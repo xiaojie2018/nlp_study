@@ -13,8 +13,6 @@ import copy
 import random
 from tqdm import tqdm
 from torch.utils.data import TensorDataset
-from competition_3.src import attrs_file, entities_file, link_prediction_file, relationships_file, schema_file, virus2sequence_file
-from competition_3.src.utils import DataProcess
 logger = logging.getLogger(__name__)
 
 
@@ -42,11 +40,9 @@ class InputExample(object):
         slot_labels: (Optional) list. The slot labels of the example.
     """
 
-    def __init__(self, guid, head, relation, tail, label=None):
+    def __init__(self, guid, text, label=None):
         self.guid = guid
-        self.head = head
-        self.relation = relation
-        self.tail = tail
+        self.text = text
         self.label = label
 
     def __repr__(self):
@@ -65,11 +61,10 @@ class InputExample(object):
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, input_ids, attention_mask, token_type_ids, sep_masks, label):
+    def __init__(self, input_ids, attention_mask, token_type_ids, label):
         self.input_ids = input_ids
         self.attention_mask = attention_mask
         self.token_type_ids = token_type_ids
-        self.sep_masks = sep_masks
         self.label = label
 
     def __repr__(self):
@@ -161,16 +156,15 @@ def get_all_metrics_two(label_list, prediction_list):
 
 def compute_metrics(intent_preds, intent_labels):
     assert len(intent_preds) == len(intent_labels)
-    pr = 0.5
+    # pr = 0.5
     results = {}
-    intent_preds1 = [str(1) if intent_preds[i] > pr else str(0) for i in range(intent_preds.shape[0])]
-    intent_labels1 = [str(int(i)) for i in intent_labels.tolist()]
-    intent_result, wrong_indexs_all = get_all_metrics_two(intent_labels1, intent_preds1)
+    # intent_preds1 = [1 if intent_preds[i] > pr else 0 for i in range(intent_preds.shape[0])]
+    intent_result, wrong_indexs_all = get_all_metrics_two(intent_labels, intent_preds)
     results.update(intent_result)
     return results
 
 
-class KGDataProcess(DataProcess):
+class DataProcess:
     def __init__(self, config):
         self.config = config
         self.ADDITIONAL_SPECIAL_TOKENS = self.config.ADDITIONAL_SPECIAL_TOKENS
@@ -182,72 +176,9 @@ class KGDataProcess(DataProcess):
         tokenizer.add_special_tokens({"additional_special_tokens": self.ADDITIONAL_SPECIAL_TOKENS})
         return tokenizer
 
-    def gen_data(self, file):
-        self.entities = self.read_all_entity(entities_file)
-        self.triple, entities1 = self.read_relationships(relationships_file)
-        self.attrs = self.read_attrs(attrs_file)
-        self.virus2sequence = self.read_virus2sequence(virus2sequence_file)
-        self.test_data = self.read_test_data(link_prediction_file)
-
-        self.entity_type = {}
-        for k, v in self.entities.items():
-            if k == "all":
-                continue
-            for v1 in v:
-                self.entity_type[v1] = k
-
-        import pickle
-        with open(file, 'rb') as f:
-            data = pickle.load(f)
-
-        # 假如特殊字符 <e1> </e1>
-        # self.ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
-
-        # 假如属性
-
-        # 假如类别
-        res = []
-        res_len = []
-        for d in data:
-            e1 = d[0]
-            e2 = d[2]
-            e11 = e1.split('_')[0] + "_" + self.ADDITIONAL_SPECIAL_TOKENS[0] + e1.split("_")[1] + self.ADDITIONAL_SPECIAL_TOKENS[1]
-            e22 = e2.split('_')[0] + "_" + self.ADDITIONAL_SPECIAL_TOKENS[2] + e2.split("_")[1] + self.ADDITIONAL_SPECIAL_TOKENS[3]
-
-            e11 += ", type: {}".format(self.entity_type[e1])
-            e22 += ", type: {}".format(self.entity_type[e2])
-
-            # if e1 in self.attrs:
-            #     xe1 = self.attrs[e1][1:]
-            #     xe10 = []
-            #     xe10.append(xe1[0])
-            #     if isinstance(xe1[1], list):
-            #         xe10.append(','.join(xe1[1]))
-            #     else:
-            #         xe10.append(xe1[1])
-            #
-            #     e11 += ", " + ": ".join(xe10)
-            # if e2 in self.attrs:
-            #     xe1 = self.attrs[e2][1:]
-            #     xe10 = []
-            #     xe10.append(xe1[0])
-            #     if isinstance(xe1[1], list):
-            #         xe10.append(','.join(xe1[1]))
-            #     else:
-            #         xe10.append(xe1[1])
-
-            res.append([e11.lower(), d[1], e22.lower(), d[-1]])
-            res_len.append(len(e11.lower() + d[1] + e22.lower()))
-
-        print("max_len: ", max(res_len))
-        print("min_len: ", min(res_len))
-        print("meas: ", sum(res_len)/len(res_len))
-
-        return res
-
-    def _get_data(self, data, set_type="train"):
+    def _get_data(self, data, label_id, set_type="train"):
         """
-        :param data: [[e1, r, e2, 0|1], [第二个样本], ...]   [实体1， 关系， 实体2， label]
+        :param data: [[text, label], [第二个样本], ...]
         :param set_type:
         :return:
         """
@@ -257,14 +188,12 @@ class KGDataProcess(DataProcess):
             random.shuffle(data)
         logger.info("----- {} data num: {} ------".format(set_type, len(data)))
         for i, d in tqdm(enumerate(data)):
-            head_entity = d[0]
-            relation = d[1]
-            tail_entity = d[2]
-            label = d[3]
+            text = d[0]
+            label = label_id[d[1]]
 
             guid = "%s-%s" % (set_type, i)
 
-            examples.append(InputExample(guid=guid, head=head_entity, relation=relation, tail=tail_entity, label=label))
+            examples.append(InputExample(guid=guid, text=text, label=label))
 
         pad_token_label_id = self.config.ignore_index
         features = self.convert_examples_to_features(examples,
@@ -276,10 +205,9 @@ class KGDataProcess(DataProcess):
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
         all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
-        all_sep_masks = torch.tensor([f.sep_masks for f in features], dtype=torch.long)
-        all_label_ids = torch.tensor([f.label for f in features], dtype=torch.float)
+        all_label_ids = torch.tensor([f.label for f in features], dtype=torch.long)
 
-        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_sep_masks, all_label_ids)
+        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label_ids)
         return dataset
 
     def convert_examples_to_features(self, examples, max_seq_len, tokenizer,
@@ -306,48 +234,19 @@ class KGDataProcess(DataProcess):
                 print("Writing example %d of %d" % (ex_index, len(examples)))
 
             # Tokenize word by word
-            head = example.head
-            relation = example.relation
-            tail = example.tail
+            text = example.text
+            tokens_text = tokenizer.tokenize(text)
 
-            tokens_head = tokenizer.tokenize(head)
-            tokens_relation = tokenizer.tokenize(relation)
-            tokens_tail = tokenizer.tokenize(tail)
-
-            tokens = [cls_token] + tokens_head + [sep_token] + tokens_relation + [sep_token] + tokens_tail + [sep_token]
-            # token_type_ids = [cls_token_segment_id] + [sequence_a_segment_id] * (len(tokens) - 1)
-            token_type_ids = [cls_token_segment_id] + \
-                             [sequence_a_segment_id]*(len(tokens_head)+1) + \
-                             [sequence_b_segment_id]*(len(tokens_relation)+1) + \
-                             [sequence_a_segment_id]*(len(tokens_tail)+1)
+            tokens = [cls_token] + tokens_text + [sep_token]
+            token_type_ids = [cls_token_segment_id] + [sequence_a_segment_id]*(len(tokens_text)+1)
 
             input_ids = tokenizer.convert_tokens_to_ids(tokens)
             attention_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
-
-            # sep_mask   :find the sep token
-            sep_token_id = tokenizer.convert_tokens_to_ids(sep_token)
-
-            sep_mask_ids = []
-            for i, x in enumerate(input_ids):
-                if x == sep_token_id:
-                    sep_mask_ids.append(i)
-            sep_masks = []
-            for i in sep_mask_ids:
-                sep_mask0 = [0] * len(input_ids)
-                sep_mask0[i] = 1
-                sep_masks.append(sep_mask0)
 
             padding_length = max_seq_len - len(input_ids)
             input_ids = input_ids + ([pad_token_id] * padding_length)
             attention_mask = attention_mask + ([0 if mask_padding_with_zero else 1] * padding_length)
             token_type_ids = token_type_ids + ([pad_token_segment_id] * padding_length)
-
-            sep_masks111 = []
-            for x in sep_masks:
-                x = x + ([0] * padding_length)
-                sep_masks111.append(x)
-
-            sep_masks = np.array(sep_masks111)
 
             label = example.label
 
@@ -365,7 +264,26 @@ class KGDataProcess(DataProcess):
                 InputFeatures(input_ids=input_ids,
                               attention_mask=attention_mask,
                               token_type_ids=token_type_ids,
-                              sep_masks=sep_masks,
                               label=label
                               ))
         return features
+
+    def get_data(self, file):
+        label = []
+        data = []
+        with open(file, 'r', encoding='utf-8') as f:
+            for line in tqdm(f):
+                data.append(line.replace('\n', '').split('\t'))
+
+        data_len = []
+        for d in data:
+            label.append(d[-1])
+            data_len.append(len(d[0]))
+
+        label = sorted(list(set(label)))
+        print("max_len: ", max(data_len))
+        print("min_len: ", min(data_len))
+        print("mean_:  ", sum(data_len)/len(data_len))
+
+        return data, label
+

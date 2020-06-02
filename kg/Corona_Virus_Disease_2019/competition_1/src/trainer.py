@@ -7,8 +7,8 @@
 import os
 import logging
 from tqdm import tqdm, trange
-from competition_3.src.kg_utils import MODEL_CLASSES, set_seed, compute_metrics
-from competition_3.src.model import KGBrtEmbedding
+from competition_1.src.bert_classification_utils import MODEL_CLASSES, set_seed, compute_metrics
+from competition_1.src.model import BertClassification
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
@@ -26,7 +26,7 @@ class Trainer(object):
         self.test_dataset = test_dataset
 
         self.config_class, _ = MODEL_CLASSES[args.model_type]
-        self.model_class = KGBrtEmbedding
+        self.model_class = BertClassification
         self.config = self.config_class.from_pretrained(args.model_name_or_path)
         self.model = self.model_class.from_pretrained(args.model_name_or_path,
                                                       config=self.config,
@@ -88,10 +88,10 @@ class Trainer(object):
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
                           'token_type_ids': batch[2],
-                          'sep_masks': batch[3],
-                          'label': batch[4]}
+                          'label': batch[3]}
 
                 outputs = self.model(**inputs)
+                # eval_results = self.evaluate1('dev')
                 loss = outputs[0]
                 # eval_results = self.evaluate1('dev')
 
@@ -110,6 +110,7 @@ class Trainer(object):
                     global_step += 1
 
                     if self.args.logging_steps > 0 and global_step % self.args.logging_steps == 0:
+                        _ = self.evaluate1('train')
                         eval_results = self.evaluate1('dev')
 
                     if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
@@ -125,6 +126,7 @@ class Trainer(object):
                 lr = scheduler.get_lr()[-1]
                 witer.add_scalar("Train/lr", lr, global_step)
 
+            _ = self.evaluate1('train')
             eval_results = self.evaluate1('dev')
             if eval_results.get("mean", {}).get("mean_precision", 0.0) > best_f1:
                 best_f1 = eval_results.get("mean", {}).get("mean_precision", 0.0)
@@ -172,6 +174,8 @@ class Trainer(object):
             dataset = self.test_dataset
         elif mode == 'dev':
             dataset = self.dev_dataset
+        elif mode == 'train':
+            dataset = self.train_dataset
         else:
             raise Exception("Only dev and test dataset available")
 
@@ -195,8 +199,7 @@ class Trainer(object):
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
                           'token_type_ids': batch[2],
-                          'sep_masks': batch[3],
-                          'label': batch[4]}
+                          'label': batch[3]}
 
                 outputs = self.model(**inputs)
                 tmp_eval_loss, (intent_logits) = outputs[:2]
@@ -217,8 +220,14 @@ class Trainer(object):
         results = {
             "loss": eval_loss
         }
+        intent_preds = np.argmax(intent_preds, axis=1)
+        intent_list = []
+        out_intent_label_list = []
+        for i in range(intent_preds.shape[0]):
+            intent_list.append(self.args.id_label[intent_preds[i]])
+            out_intent_label_list.append(self.args.id_label[out_intent_label_ids[i]])
 
-        total_result = compute_metrics(intent_preds, out_intent_label_ids)
+        total_result = compute_metrics(intent_list, out_intent_label_list)
         results.update(total_result)
 
         logger.info("***** Eval results *****")

@@ -100,16 +100,20 @@ class DataProcess:
         res.append(
             [e1, neg_relation[0], e2]
         )
-        for nr in neg_relation:
-            i = random.randint(0, len(self.entity_neg_e2[e1])-1)
-            res.append(
-                [e1, nr, self.entity_neg_e2[e1][i]]
-            )
+        random.shuffle(neg_relation)
+
+        # for nr in neg_relation:
+        nr = neg_relation[0]
+        i = random.randint(0, len(self.entity_neg_e2[e1])-1)
+        res.append(
+            [e1, nr, self.entity_neg_e2[e1][i]]
+        )
+
         ene = []
         for kr in other[t1][r]:
             ene += self.entities[kr]
 
-        for _ in range(2):
+        for _ in range(1):
             i = random.randint(0, len(ene)-1)
             res.append(
                 [e1, r, ene[i]]
@@ -258,5 +262,5 @@ class DataProcess:
 
 if __name__ == '__main__':
     dp = DataProcess()
-    # dp.get_train_data()
-    dp.gen_data("./data/train_0.pkl")
+    dp.get_train_data()
+    # dp.gen_data("./data/train_0.pkl")
