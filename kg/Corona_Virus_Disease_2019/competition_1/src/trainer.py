@@ -262,15 +262,10 @@ class Trainer(object):
         for batch in eval_dataloader:
             batch = tuple(t.to(self.device) for t in batch)
             with torch.no_grad():
-                inputs = {'input_ids1': batch[0],
-                          'attention_mask1': batch[1],
-                          'token_type_ids1': batch[2],
-                          'mention_masks': batch[3],
-                          'input_ids2': batch[4],
-                          'attention_mask2': batch[5],
-                          'token_type_ids2': batch[6],
-                          'sep_masks2': batch[7],
-                          'labels': batch[8]}
+                inputs = {'input_ids': batch[0],
+                          'attention_mask': batch[1],
+                          'token_type_ids': batch[2],
+                          'label': batch[3]}
 
                 outputs = self.model(**inputs)
 
@@ -292,6 +287,10 @@ class Trainer(object):
         # results = {
         #     "loss": eval_loss
         # }
+        intent_preds = np.argmax(link_preds, axis=1)
+        intent_list = []
+        for i in range(intent_preds.shape[0]):
+            intent_list.append(self.args.id_label[intent_preds[i]])
 
         # Intent result
         # print(1)
@@ -311,7 +310,7 @@ class Trainer(object):
         # for key in sorted(results.keys()):
         #     logger.info("  %s = %s", key, str(results[key]))
 
-        return link_preds
+        return intent_list
 
     def save_model(self):
         # Save model checkpoint (Overwrite)
