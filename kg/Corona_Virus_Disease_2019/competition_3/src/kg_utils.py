@@ -177,6 +177,18 @@ class KGDataProcess(DataProcess):
         self.ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
         self.tokenizer = self.load_tokenizer(self.config)
 
+        self.entities = self.read_all_entity(entities_file)
+        self.triple, entities1 = self.read_relationships(relationships_file)
+        self.attrs = self.read_attrs(attrs_file)
+        self.virus2sequence = self.read_virus2sequence(virus2sequence_file)
+        self.test_data = self.read_test_data(link_prediction_file)
+        self.entity_type = {}
+        for k, v in self.entities.items():
+            if k == "all":
+                continue
+            for v1 in v:
+                self.entity_type[v1] = k
+
     def load_tokenizer(self, args):
         tokenizer = MODEL_CLASSES[args.model_type][1].from_pretrained(args.model_name_or_path)
         tokenizer.add_special_tokens({"additional_special_tokens": self.ADDITIONAL_SPECIAL_TOKENS})
@@ -244,6 +256,86 @@ class KGDataProcess(DataProcess):
         print("meas: ", sum(res_len)/len(res_len))
 
         return res
+
+    def gen_predict_data(self, texts):
+        # 假如特殊字符 <e1> </e1>
+        # self.ADDITIONAL_SPECIAL_TOKENS = ["<e1>", "</e1>", "<e2>", "</e2>"]
+        all_relations = [["Drug", "effect", "Virus"], ["Protein", "interaction", "Protein"],
+                         ["Virus", "produce", "Protein"], ["Protein", "binding", "Protein"]]
+
+        all_entity_types = ["Virus", "Drug", "Protein"]
+
+        data = []  # [[e1, r, e2, label], [], ...]
+        data1 = []
+        for text in texts:
+            if text[0] == '?':
+                r = text[1]
+                e2 = text[2]
+                t2 = self.entity_type[e2]
+                t1 = []
+                for x in all_entity_types:
+                    if [x, r, t2] in all_relations:
+                        t1.append(x)
+                all_e1 = []
+                for x in t1:
+                    all_e1 += self.entities[x]
+                for e1 in all_e1:
+                    data.append([e1, r, e2, 0])
+                    data1.append([e1, r, e2, 1])
+
+            elif text[2] == '?':
+                r = text[1]
+                e1 = text[0]
+                t1 = self.entity_type[e1]
+                t2 = []
+                for x in all_entity_types:
+                    if [t1, r, x] in all_relations:
+                        t2.append(x)
+                all_e2 = []
+                for x in t2:
+                    all_e2 += self.entities[x]
+
+                for e2 in all_e2:
+                    data.append([e1, r, e2, 0])
+                    data1.append([e1, r, e2, 2])
+
+        # 假如属性
+
+        # 假如类别
+        res = []
+        for d in data:
+            e1 = d[0]
+            e2 = d[2]
+            e11 = e1.split('_')[0] + "_" + self.ADDITIONAL_SPECIAL_TOKENS[0] + e1.split("_")[1] + \
+                  self.ADDITIONAL_SPECIAL_TOKENS[1]
+            e22 = e2.split('_')[0] + "_" + self.ADDITIONAL_SPECIAL_TOKENS[2] + e2.split("_")[1] + \
+                  self.ADDITIONAL_SPECIAL_TOKENS[3]
+
+            e11 += ", type: {}".format(self.entity_type[e1])
+            e22 += ", type: {}".format(self.entity_type[e2])
+
+            # if e1 in self.attrs:
+            #     xe1 = self.attrs[e1][1:]
+            #     xe10 = []
+            #     xe10.append(xe1[0])
+            #     if isinstance(xe1[1], list):
+            #         xe10.append(','.join(xe1[1]))
+            #     else:
+            #         xe10.append(xe1[1])
+            #
+            #     e11 += ", " + ": ".join(xe10)
+            # if e2 in self.attrs:
+            #     xe1 = self.attrs[e2][1:]
+            #     xe10 = []
+            #     xe10.append(xe1[0])
+            #     if isinstance(xe1[1], list):
+            #         xe10.append(','.join(xe1[1]))
+            #     else:
+            #         xe10.append(xe1[1])
+
+            res.append([e11.lower(), d[1], e22.lower(), d[-1]])
+
+        return data1, res
 
     def _get_data(self, data, set_type="train"):
         """

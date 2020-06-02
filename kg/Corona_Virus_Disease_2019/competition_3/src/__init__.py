@@ -5,8 +5,8 @@
 
 import os
 
-# file_path = "E:\\bishai\\数据集\\CCKS 2020：新冠知识图谱构建与问答评测（三）新冠科研抗病毒药物图谱的链接预测\\ccks_7_3_data_nolabel"
-file_path = "/home/hemei/xjie/kg_bert/ccks_7_3_data_nolabel"
+file_path = "E:\\bishai\\数据集\\CCKS 2020：新冠知识图谱构建与问答评测（三）新冠科研抗病毒药物图谱的链接预测\\ccks_7_3_data_nolabel"
+# file_path = "/home/hemei/xjie/kg_bert/ccks_7_3_data_nolabel"
 
 attrs_file = os.path.join(file_path, "attrs.json")
 entities_file = os.path.join(file_path, "entities.json")
