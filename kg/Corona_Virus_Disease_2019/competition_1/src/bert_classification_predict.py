@@ -7,9 +7,11 @@ import json
 import os
 from argparse import Namespace
 from tqdm import tqdm
-from competition_1.src import test_file_path
+# from competition_1.src import test_file_path
 from competition_1.src.bert_classification_utils import DataProcess
 from competition_1.src.trainer import Trainer
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 class BertClassificationPredictModelHandler(DataProcess):
@@ -50,12 +52,17 @@ def read_test_data(file):
 
 if __name__ == '__main__':
     params_config = "D:\\nlp_study\\kg\\Corona_Virus_Disease_2019\\competition_1\\src\\model\\params_config.json"
+    params_config = "/home/hemei/xjie/bert_classification/model/params_config.json"
     bc = BertClassificationPredictModelHandler(params_config)
-    # texts = read_test_data(os.path.join(test_file_path, "entity_validation.txt"))
     texts = ["上半身肥胖型", "运动传导束受累", "手术后反流性胃炎", "口腔黏膜嗜酸性溃疡"]
     result = bc.predict(texts)
+    print(result)
 
-    output_file = './output/result_bert.txt'
+    test_file_path = "/home/hemei/xjie/bert_classification/ccks_7_1_competition_data/验证集"
+    texts = read_test_data(os.path.join(test_file_path, "entity_validation.txt"))
+    result = bc.predict(texts)
+
+    output_file = './output/result_bert_1.txt'
     f = open(output_file, 'w', encoding='utf-8')
     for s in result:
         f.write('\t'.join(s)+'\n')

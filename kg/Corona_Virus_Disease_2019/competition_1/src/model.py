@@ -7,16 +7,18 @@ import torch
 import torch.nn as nn
 from transformers.modeling_bert import BertPreTrainedModel, BertModel
 import numpy as np
+from competition_1.src.bert_classification_utils import DataProcess
+# from competition_1.src.feature import chars_id, vectors, vectors_size
 
 
 class SelfAttention(nn.Module):
 
-    def __init__(self, sentence_num=0, key_size=0, hidden_size=0, attn_dropout=0.1):
+    def __init__(self, sentence_num=1, key_size=0, hidden_size=0, output_size=0, attn_dropout=0.1):
 
         super(SelfAttention, self).__init__()
         self.linear_k = nn.Linear(hidden_size, key_size, bias=False)
         self.linear_q = nn.Linear(hidden_size, key_size, bias=False)
-        self.linear_v = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.linear_v = nn.Linear(hidden_size, output_size, bias=False)
         self.dim_k = np.power(key_size, 0.5)
         self.softmax = nn.Softmax(1)
         self.dropout = nn.Dropout(attn_dropout)
@@ -62,6 +64,26 @@ class FCLayer(nn.Module):
         return y
 
 
+class FCLayer1(nn.Module):
+    def __init__(self, input_dim, output_dim, dropout_rate=0.5, use_activation=True):
+        super(FCLayer1, self).__init__()
+        self.use_activation = use_activation
+        self.dropout = nn.Dropout(dropout_rate)
+        self.linear = nn.Linear(input_dim, output_dim)
+        self.tanh = nn.Tanh()
+        self.softmax = nn.Softmax(1)
+        # self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.dropout(x)
+        if self.use_activation:
+            x = self.tanh(x)
+        x1 = self.linear(x)
+        # y = self.softmax(x1)
+        # y = self.sigmoid(x1)
+        return x1
+
+
 class BertClassification(BertPreTrainedModel):
 
     def __init__(self, config, args):
@@ -69,16 +91,35 @@ class BertClassification(BertPreTrainedModel):
         self.args = args
         self.bert = BertModel(config=config)  # Load pretrained bert
         self.hidden_size = config.hidden_size
-        # self.key_size = self.hidden_size
+        self.key_size = self.hidden_size
         # self.sentence_num = 3
-        self.label_num = len(args.label_id)
+        # self.chars_id, self.vectors, self.vectors_size = chars_id, vectors, vectors_size
 
+        self.label_num = len(args.label_id)
+        self.config = config
+        self.get_id_token()
         self.fc = FCLayer(self.hidden_size, self.label_num)
-        # self.att = SelfAttention(sentence_num=self.sentence_num, key_size=self.key_size, hidden_size=self.hidden_size)
+
+        # self.wc1 = FCLayer1(self.hidden_size, self.vectors_size)
+        # self.wc2 = FCLayer1(2*self.vectors_size, self.hidden_size)
+        self.wc3 = FCLayer1(2*self.hidden_size, self.hidden_size)
+        self.att = SelfAttention(sentence_num=self.args.max_seq_len, key_size=self.key_size,
+                                 hidden_size=self.hidden_size, output_size=self.hidden_size)
         # self.bilstm = nn.LSTM(self.hidden_size, self.hidden_size, 1, bidirectional=True)  # [embeddings_size, hidden_dim, layer_num]
 
         self.loss_fct_cros = nn.CrossEntropyLoss()
         # self.loss_fct_bce = nn.BCELoss()
+
+    def get_id_token(self):
+        self.tokenizer = DataProcess(self.args).load_tokenizer(self.args)
+        vocab = self.tokenizer.get_vocab()
+        # added_tokens = self.tokenizer.added_tokens_encoder
+        all_special_tokens = {y: x for x, y in zip(self.tokenizer.all_special_ids, self.tokenizer.all_special_tokens)}
+        self.token_id = vocab
+        for k, v in all_special_tokens.items():
+            if k not in self.token_id:
+                self.token_id[k] = v
+        self.id_token = {v: k for k, v in self.token_id.items()}
 
     @staticmethod
     def get_sep_vec(hidden_output, sep_masks):
@@ -111,6 +152,33 @@ class BertClassification(BertPreTrainedModel):
         outputs = self.bert(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # sequence_output, pooled_output, (hidden_states), (attentions)
         sequence_output = outputs[0]  # [batch_size, max_sen_len, embedding_size]
         pooled_output = outputs[1]  # [CLS]  [batch_size, embedding_size]
+
+        """
+        tokens = [[self.id_token[y] for y in x] for x in input_ids.tolist()]  # [[c1, c2, c3, ... ], [  ], ...]
+
+        tokens_vectors = []
+        for token in tokens:
+            t_v = []
+            for t in token:
+                if t in self.chars_id:
+                    t_v.append(self.vectors[chars_id[t]])
+                else:
+                    t_v.append([0.0] * self.vectors_size)
+            tokens_vectors.append(t_v)
+        tokens_vectors = torch.tensor(tokens_vectors)  # [batch_size, max_sen_len, vectors_size]  [64, 35, 8]
+        tokens_vectors = tokens_vectors.cuda()
+
+        sequence_output1 = self.wc1(sequence_output)   # [batch_size, max_sen_len, vectors_size]
+
+        output = torch.cat([sequence_output1, tokens_vectors], dim=-1)  # [batch_size, max_sen_len, 2*vectors_size]
+        output = self.wc2(output)  # [batch_size, max_sen_len, embedding_size]
+
+        # attention
+        output = self.att(output)  # [batch_size, embedding_size]
+
+        output = torch.cat([pooled_output, output], dim=-1)  # [batch_size, 2*embedding_size]
+        pooled_output = self.wc3(output)  # [batch_size, embedding_size]
+        """
 
         # [SEP]
         # seq_vec1 = self.get_sep_vec(sequence_output, sep_masks)  # [batch_size, sentence_num, embedding_size]

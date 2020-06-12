@@ -290,7 +290,7 @@ class Trainer(object):
         intent_preds = np.argmax(link_preds, axis=1)
         intent_list = []
         for i in range(intent_preds.shape[0]):
-            intent_list.append(self.args.id_label[intent_preds[i]])
+            intent_list.append(self.args.id_label[str(intent_preds[i])])
 
         # Intent result
         # print(1)

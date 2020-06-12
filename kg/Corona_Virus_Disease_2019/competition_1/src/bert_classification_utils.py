@@ -270,10 +270,12 @@ class DataProcess:
 
     def get_data(self, file):
         label = []
-        data = []
+        data1 = []
         with open(file, 'r', encoding='utf-8') as f:
             for line in tqdm(f):
-                data.append(line.replace('\n', '').split('\t'))
+                data1.append(line.replace('\n', '').split('\t'))
+
+        data = [d for d in data1 if d[-1] in ["症状", "疾病"]]
 
         data_len = []
         for d in data:

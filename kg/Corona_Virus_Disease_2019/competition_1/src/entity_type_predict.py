@@ -49,7 +49,7 @@ class EntityType(DataProcess, GenWord2Vec):
         return res1
 
     def sifting(self, r):
-        num_k = 1
+        num_k = 10
         res = {}
         for i in range(num_k):
             if r[i][1][0] not in res:
@@ -83,13 +83,13 @@ if __name__ == '__main__':
     # et.get_word2vec_text(output_file_)
 
     res, res1 = et.predict()
-    output_file = '../output/result_top1.txt'
+    output_file = '../output/result_top10.txt'
     f = open(output_file, 'w', encoding='utf-8')
     for s in res:
         f.write('\t'.join(s)+'\n')
     f.close()
 
-    output_file1 = os.path.join(test_file_path, 'result_top50.pkl')
-    f1 = open(output_file1, 'wb')
-    pickle.dump(res1, f1)
-    f1.close()
+    # output_file1 = os.path.join(test_file_path, 'result_top50.pkl')
+    # f1 = open(output_file1, 'wb')
+    # pickle.dump(res1, f1)
+    # f1.close()

@@ -18,7 +18,7 @@ import numpy as np
 import json
 import os
 import codecs
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 init_logger()
 
 logger = logging.getLogger(__name__)
@@ -147,7 +147,7 @@ class BertEntityLinkTrainModelHandler:
         pad_token_id = tokenizer.pad_token_id
 
         features = []
-        for (ex_index, example) in enumerate(examples):
+        for (ex_index, example) in tqdm(enumerate(examples)):
             if ex_index % 5000 == 0:
                 # logger.info("Writing example %d of %d" % (ex_index, len(examples)))
                 print("Writing example %d of %d" % (ex_index, len(examples)))
@@ -253,23 +253,23 @@ class BertEntityLinkTrainModelHandler:
 
             label = int(example.label)
 
-            if ex_index < 5:
-                print("example")
-                logger.info("*** Example ***")
-                logger.info("guid: %s" % example.guid)
-                logger.info("tokens1: %s" % " ".join([str(x) for x in tokens1_]))
-                logger.info("input_ids1: %s" % " ".join([str(x) for x in input_ids1_]))
-                logger.info("attention_mask1: %s" % " ".join([str(x) for x in attention_mask1_]))
-                logger.info("token_type_ids1: %s" % " ".join([str(x) for x in token_type_ids1_]))
-                logger.info("mention_mask1: %s" % " ".join([str(x) for x in mention_mask1_]))
-
-                logger.info("tokens2: %s" % " ".join([str(x) for x in tokens2_]))
-                logger.info("input_ids2: %s" % " ".join([str(x) for x in input_ids2_]))
-                logger.info("attention_mask2: %s" % " ".join([str(x) for x in attention_mask2_]))
-                logger.info("token_type_ids2: %s" % " ".join([str(x) for x in token_type_ids2_]))
-                logger.info("sep_mask_ids: %s" % " ".join([str(x) for x in sep_mask_ids]))
-
-                logger.info("intent_label: %d" % example.label)
+            # if ex_index < 5:
+            #     print("example")
+            #     logger.info("*** Example ***")
+            #     logger.info("guid: %s" % example.guid)
+            #     logger.info("tokens1: %s" % " ".join([str(x) for x in tokens1_]))
+            #     logger.info("input_ids1: %s" % " ".join([str(x) for x in input_ids1_]))
+            #     logger.info("attention_mask1: %s" % " ".join([str(x) for x in attention_mask1_]))
+            #     logger.info("token_type_ids1: %s" % " ".join([str(x) for x in token_type_ids1_]))
+            #     logger.info("mention_mask1: %s" % " ".join([str(x) for x in mention_mask1_]))
+            #
+            #     logger.info("tokens2: %s" % " ".join([str(x) for x in tokens2_]))
+            #     logger.info("input_ids2: %s" % " ".join([str(x) for x in input_ids2_]))
+            #     logger.info("attention_mask2: %s" % " ".join([str(x) for x in attention_mask2_]))
+            #     logger.info("token_type_ids2: %s" % " ".join([str(x) for x in token_type_ids2_]))
+            #     logger.info("sep_mask_ids: %s" % " ".join([str(x) for x in sep_mask_ids]))
+            #
+            #     logger.info("intent_label: %d" % example.label)
 
             features.append(
                 InputFeatures(input_ids1=input_ids1_,
@@ -308,6 +308,8 @@ class BertEntityLinkTrainModelHandler:
     def _get_data(self, data, set_type="train"):
 
         examples = []
+        random.shuffle(data)
+        logger.info("train data num: {}".format(len(data)))
         for i, d in enumerate(data):
 
             text1 = d[0]
@@ -428,6 +430,7 @@ class BertEntityLinkTrainModelHandler:
         return dataset
 
     def data_process(self):
+        import pickle
         o_file = self.config.train_file_url[0]
 
         train_file = os.path.join(o_file, "train.json")
@@ -436,16 +439,31 @@ class BertEntityLinkTrainModelHandler:
         train_data_ = self.get_train_data(train_file)
         test_data_ = self.get_test_data(dev_file)
 
-        self.train_data = self._get_data(train_data_, set_type="train")
+        train_data_file = './o_data/train.pkl'
+        test_data_file = './o_data/test.pkl'
+        if os.path.exists(train_data_file) and os.path.exists(test_data_file):
+            with open(train_data_file, 'rb') as tf:
+                self.train_data = pickle.load(tf)
+            with open(test_data_file, 'rb') as tf:
+                self.test_data = pickle.load(tf)
+        else:
+            self.train_data = self._get_data(train_data_, set_type="train")
 
-        self.test_data = []
-        for td in test_data_:
-            o_d = td['o_data']
-            kb_d = td['kb_data']
-            if len(kb_d) == 0:
-                self.test_data.append({"o_data": o_d, "kb_data": None, "o_kb_data": []})
-            else:
-                self.test_data.append({"o_data": o_d, "kb_data": self._get_data_test(kb_d, set_type="test"), "o_kb_data": kb_d})
+            self.test_data = []
+            for td in tqdm(test_data_):
+                o_d = td['o_data']
+                kb_d = td['kb_data']
+                if len(kb_d) == 0:
+                    self.test_data.append({"o_data": o_d, "kb_data": None, "o_kb_data": []})
+                else:
+                    self.test_data.append({"o_data": o_d, "kb_data": self._get_data_test(kb_d, set_type="test"), "o_kb_data": kb_d})
+
+            # tf = open(train_data_file, 'wb')
+            # pickle.dump(self.train_data, tf)
+            # tf.close()
+            # tf = open(test_data_file, 'wb')
+            # pickle.dump(self.test_data, tf)
+            # tf.close()
 
         self.dev_data = self.test_data
 
@@ -458,7 +476,7 @@ class BertEntityLinkTrainModelHandler:
 
         self.config.model_save_path = self.model_save_path
 
-        with codecs.open(os.path.join(self.model_save_path, 'config.json'), 'w', encoding='utf-8') as fd:
+        with codecs.open(os.path.join(self.model_save_path, 'params_config.json'), 'w', encoding='utf-8') as fd:
             json.dump(vars(self.config), fd, indent=4, ensure_ascii=False)
 
         self.trainer = Trainer(self.config,
@@ -483,10 +501,10 @@ if __name__ == '__main__':
             "data_dir": "./data",
             "model_type": "bert",
             "seed": 1234,
-            "train_batch_size": 4,
-            "eval_batch_size": 4,
-            "max_seq_len1": 128,
-            "max_seq_len2": 512,
+            "train_batch_size": 8,
+            "eval_batch_size": 8,
+            "max_seq_len1": 64,
+            "max_seq_len2": 256,
             "learning_rate": 5e-5,
             "num_train_epochs": 20,
             "weight_decay": 0.0,
