@@ -88,7 +88,8 @@ class Trainer(object):
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
                           'token_type_ids': batch[2],
-                          'label': batch[3]}
+                          'fea': batch[3],
+                          'label': batch[4]}
 
                 outputs = self.model(**inputs)
                 # eval_results = self.evaluate1('dev')
@@ -199,7 +200,8 @@ class Trainer(object):
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
                           'token_type_ids': batch[2],
-                          'label': batch[3]}
+                          'fea': batch[3],
+                          'label': batch[4]}
 
                 outputs = self.model(**inputs)
                 tmp_eval_loss, (intent_logits) = outputs[:2]
@@ -269,7 +271,8 @@ class Trainer(object):
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
                           'token_type_ids': batch[2],
-                          'label': batch[3]}
+                          'fea': batch[3],
+                          'label': batch[4]}
 
                 outputs = self.model(**inputs)
 

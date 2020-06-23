@@ -92,11 +92,13 @@ class BertClassification(BertPreTrainedModel):
         self.hidden_size = config.hidden_size
         self.key_size = self.hidden_size
         # self.sentence_num = 3
+        self.other_size = args.other_size
 
         self.label_num = len(args.label_id)
         self.config = config
         # self.get_id_token()
         self.fc = FCLayer(self.hidden_size, self.label_num)
+        self.fc1 = FCLayer(self.hidden_size+self.other_size, self.label_num)
 
         # self.wc1 = FCLayer1(self.hidden_size, self.vectors_size)
         # self.wc2 = FCLayer1(2*self.vectors_size, self.hidden_size)
@@ -147,7 +149,7 @@ class BertClassification(BertPreTrainedModel):
         avg_vector = sum_vector.float() / length_tensor.float()  # broadcasting
         return avg_vector
 
-    def forward(self, input_ids, attention_mask, token_type_ids, label):
+    def forward(self, input_ids, attention_mask, token_type_ids, fea, label):
         outputs = self.bert(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # sequence_output, pooled_output, (hidden_states), (attentions)
         sequence_output = outputs[0]  # [batch_size, max_sen_len, embedding_size]
         pooled_output = outputs[1]  # [CLS]  [batch_size, embedding_size]
@@ -160,7 +162,9 @@ class BertClassification(BertPreTrainedModel):
 
         # lstm_output, (hn, cn) = self.bilstm(seq_vec1.transpose(0, 1))  # [sentence_num, batch_size, 2*embedding_size]
 
-        logits = self.fc(pooled_output)  # [batch_size, 1]
+        output = torch.cat([pooled_output, fea], dim=-1)
+
+        logits = self.fc1(output)  # [batch_size, 1]
 
         if label is not None:
             if self.label_num == 1:

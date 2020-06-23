@@ -43,9 +43,10 @@ class InputExample(object):
         slot_labels: (Optional) list. The slot labels of the example.
     """
 
-    def __init__(self, guid, text, label=None):
+    def __init__(self, guid, text, fea, label=None):
         self.guid = guid
         self.text = text
+        self.fea = fea
         self.label = label
 
     def __repr__(self):
@@ -64,10 +65,11 @@ class InputExample(object):
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, input_ids, attention_mask, token_type_ids, label):
+    def __init__(self, input_ids, attention_mask, token_type_ids, fea, label):
         self.input_ids = input_ids
         self.attention_mask = attention_mask
         self.token_type_ids = token_type_ids
+        self.fea = fea
         self.label = label
 
     def __repr__(self):
@@ -193,12 +195,13 @@ class DataProcess:
         logger.info("----- {} data num: {} ------".format(set_type, len(data)))
         for i, d in tqdm(enumerate(data)):
             text = d[0]
+            fea = d[1]
             label = [0.0]*len(label_id)
-            label[label_id[d[1]]] = 1.0
+            label[label_id[d[-1]]] = 1.0
 
             guid = "%s-%s" % (set_type, i)
 
-            examples.append(InputExample(guid=guid, text=text, label=label))
+            examples.append(InputExample(guid=guid, text=text, fea=fea, label=label))
 
         pad_token_label_id = self.config.ignore_index
         features = self.convert_examples_to_features(examples,
@@ -210,9 +213,10 @@ class DataProcess:
         all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
         all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
         all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
+        all_fea = torch.tensor([f.fea for f in features], dtype=torch.float32)
         all_label_ids = torch.tensor([f.label for f in features], dtype=torch.long)
 
-        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label_ids)
+        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_fea, all_label_ids)
         return dataset
 
     def convert_examples_to_features(self, examples, max_seq_len, tokenizer,
@@ -241,7 +245,7 @@ class DataProcess:
             # Tokenize word by word
             text = []
             for x in example.text:
-                text.append(x[0] + "：" + x[1])
+                text.append(x)
 
             # add [SEP]
             tokens = []
@@ -273,6 +277,8 @@ class DataProcess:
                 attention_mask = attention_mask[:max_seq_len-1] + [attention_mask[-1]]
                 token_type_ids = token_type_ids[:max_seq_len-1] + [token_type_ids[-1]]
 
+            fea = example.fea
+
             label = example.label
 
             if ex_index < 5:
@@ -289,6 +295,7 @@ class DataProcess:
                 InputFeatures(input_ids=input_ids,
                               attention_mask=attention_mask,
                               token_type_ids=token_type_ids,
+                              fea=fea,
                               label=label
                               ))
         return features
@@ -322,3 +329,38 @@ class DataProcess:
         labels = sorted(list(set(labels)))
 
         return data, labels, max_len
+
+    def get_data_1(self):
+        from feature import get_example
+        result, result_user = get_example()
+
+        data = []
+        labels = []
+        words = []
+        words_len = []
+        for x, y in zip(result, result_user):
+            words_len.append(len("#".join(y)))
+            x11 = []
+            x1 = x[0]
+            for s in x1:
+                x11 += s
+            x22 = []
+            x2 = x[1]
+            for k, v in x2.items():
+                x22 += v
+
+            x33 = x11 + x22
+
+            leng = len(x33)
+
+            l = str(x[2])
+            data.append([y, x33, l])
+            labels.append(l)
+
+        print(max(words_len))
+        print(min(words_len))
+        print(sum(words_len)/len(words_len))
+
+        labels = sorted(list(set(labels)))
+
+        return data, labels, max(words_len)+4, leng

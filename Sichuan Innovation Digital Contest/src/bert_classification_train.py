@@ -42,10 +42,10 @@ class BertClassificationTrainModelHandler(DataProcess):
         ##########
         self.model_save_path = self.config.model_dir
 
-    def data_process(self, i):
+    def data_process(self):
         # 获取正负样本
         
-        data, labels, max_seq_len = self.get_data(i)
+        data, labels, max_seq_len, other_size = self.get_data_1()
 
         label_id = {l: ind for ind, l in enumerate(labels)}
         id_label = {v: k for k, v in label_id.items()}
@@ -53,6 +53,8 @@ class BertClassificationTrainModelHandler(DataProcess):
         self.config.labels = labels
         self.config.label_id = label_id
         self.config.id_label = id_label
+        self.config.other_size = other_size
+
         # data = data[:100]
 
         random.shuffle(data)
@@ -96,13 +98,13 @@ if __name__ == '__main__':
         "hyper_param_strategy": "CUSTOMED",
         "hyper_param": {
             "ADDITIONAL_SPECIAL_TOKENS": [],
-            "model_dir": "./model_7",
+            "model_dir": "./model_all",
             "data_dir": "./data",
             "model_type": "bert",
             "seed": 1234,
-            "train_batch_size": 25,
-            "eval_batch_size": 25,
-            "max_seq_len": 35,
+            "train_batch_size": 32,
+            "eval_batch_size": 32,
+            "max_seq_len": 195,
             "max_seq_len2": 256,
             "learning_rate": 5e-5,
             "num_train_epochs": 10,  # 5， 20
@@ -127,9 +129,9 @@ if __name__ == '__main__':
         "train_file_url": [],
         "job_name": "bert_classification_0"
     }
-    for i in range(7, 12):
-        config_params["hyper_param"]["model_dir"] = "./model_{}".format(i)
-        bt = BertClassificationTrainModelHandler(config_params)
-        bt.data_process(i)
-        bt.fit()
-        bt.eval()
+
+    config_params["hyper_param"]["model_dir"] = "./model_{}".format("all")
+    bt = BertClassificationTrainModelHandler(config_params)
+    bt.data_process()
+    bt.fit()
+    bt.eval()

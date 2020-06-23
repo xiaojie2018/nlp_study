@@ -7,6 +7,7 @@ import os
 import pandas as pd
 
 file_path = "E:\\bishai\\四川创新数字大赛\\诈骗电话识别\\诈骗电话号码识别-0527"
+file_path = '/home/hemei/xjie/sic/o_data'
 
 train_file_path = os.path.join(file_path, "train")
 test_file_path = os.path.join(file_path, "test")
@@ -23,7 +24,10 @@ train_file_sms = os.path.join(train_file_path, 'train_{}.csv'.format('sms'))
 train_file_user = os.path.join(train_file_path, 'train_{}.csv'.format('user'))
 train_file_voc = os.path.join(train_file_path, 'train_{}.csv'.format('voc'))
 
-train_file_user = './o_data/train_user.csv'
+test_file_app = os.path.join(test_file_path, 'test_{}.csv'.format('app'))
+test_file_sms = os.path.join(test_file_path, 'test_{}.csv'.format('sms'))
+test_file_user = os.path.join(test_file_path, 'test_{}.csv'.format('user'))
+test_file_voc = os.path.join(test_file_path, 'test_{}.csv'.format('voc'))
 
 
 def get_data():
