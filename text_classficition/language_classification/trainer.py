@@ -225,6 +225,50 @@ class Trainer:
 
         return results
 
+    def evaluate_test(self, dataset):
+        eval_dataloader = DataLoader(dataset, batch_size=self.args.eval_batch_size)
+
+        # Eval!
+        logger.info("***** Running evaluation on %s dataset *****", "predict")
+        logger.info("  Num examples = %d", len(dataset))
+        logger.info("  Batch size = %d", self.args.eval_batch_size)
+
+        intent_preds = None
+
+        self.model.eval()
+
+        for batch in tqdm(eval_dataloader, desc="Evaluating"):
+            batch = tuple(t.to(self.device) for t in batch)
+            with torch.no_grad():
+                inputs = {'input_ids': batch[0],
+                          'attention_mask': batch[1],
+                          'token_type_ids': batch[2],
+                          'label': batch[3]}
+                outputs = self.model(**inputs)
+                tmp_eval_loss, (intent_logits) = outputs[:2]
+
+            # Intent prediction
+            if intent_preds is None:
+                intent_preds = intent_logits.detach().cpu().numpy()
+            else:
+                intent_preds = np.append(intent_preds, intent_logits.detach().cpu().numpy(), axis=0)
+
+        intent_preds_list = []
+        intent_preds_list_all = []
+        intent_preds_list_pr = []
+        intent_label_map = {int(k): v for k, v in self.args.id_label.items()}
+
+        for i in range(intent_preds.shape[0]):
+            p1 = intent_preds[i].tolist()
+            intent_preds_list.append(intent_label_map[p1.index(max(p1))])
+            intent_preds_list_pr.append(max(p1))
+            p2 = {}
+            for j, o in enumerate(p1):
+                p2[intent_label_map[j]] = o
+            intent_preds_list_all.append(p2)
+
+        return intent_preds_list, intent_preds_list_pr, intent_preds_list_all
+
     def save_model(self):
         # Save model checkpoint (Overwrite)
         if not os.path.exists(self.args.model_dir):

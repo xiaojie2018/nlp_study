@@ -51,7 +51,8 @@ class ClassificationModel(BertPreTrainedModel):
 
     def forward(self, input_ids, attention_mask, token_type_ids, label):
         outputs = self.bert(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # sequence_output, pooled_output, (hidden_states), (attentions)
-        if self.args.model_type in ["xlnet_base", "xlnet_mid"]:
+        if self.args.model_type in ["xlnet_base", "xlnet_mid", "electra_base_discriminator", "electra_base_generator", 
+                                    "electra_small_discriminator", "electra_small_generator"]:
             sequence_output = outputs[0]  # [batch_size, max_sen_len, embedding_size]
             pooled_output = outputs[0][:, 0, :]
         else:

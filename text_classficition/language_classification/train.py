@@ -67,6 +67,7 @@ class LanguageModelClassificationTrain(ClassificationDataPreprocess):
     def eval(self):
         self.trainer.load_model()
         test_results = self.trainer.evaluate("test")
+        return test_results
 
 
 if __name__ == '__main__':
@@ -117,6 +118,10 @@ if __name__ == '__main__':
         "bert_www": "E:\\nlp_tools\\bert_models\\chinese_wwm_pytorch",
         "xlnet_base": "E:\\nlp_tools\\xlnet_models\\chinese_xlnet_base_pytorch",
         "xlnet_mid": "E:\\nlp_tools\\xlnet_models\\chinese_xlnet_mid_pytorch",
+        "electra_base_discriminator": "E:\\nlp_tools\\electra_models\\chinese_electra_base_discriminator_pytorch",
+        "electra_base_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_base_generator_pytorch",
+        "electra_small_discriminator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_discriminator_pytorch",
+        "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
     }
 
     config_params['model_type'] = model_type[5]

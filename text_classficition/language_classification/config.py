@@ -5,7 +5,7 @@
 
 
 from transformers import BertTokenizer, BertConfig, AlbertConfig, AlbertTokenizer, RobertaConfig, RobertaTokenizer, \
-    XLNetConfig, XLNetTokenizer, XLNetModel
+    XLNetConfig, XLNetTokenizer, XLNetModel, AutoConfig, AutoTokenizer, AutoModel
 from transformers import BertModel, BertPreTrainedModel, RobertaModel, AlbertModel
 
 MODEL_CLASSES = {
@@ -16,6 +16,10 @@ MODEL_CLASSES = {
     'ernie': (BertConfig, BertTokenizer, BertModel),
     "xlnet_base": (XLNetConfig, XLNetTokenizer, XLNetModel),
     "xlnet_mid": (XLNetConfig, XLNetTokenizer, XLNetModel),
+    "electra_base_discriminator": (AutoConfig, AutoTokenizer, AutoModel),
+    "electra_base_generator": (AutoConfig, AutoTokenizer, AutoModel),
+    "electra_small_discriminator": (AutoConfig, AutoTokenizer, AutoModel),
+    "electra_small_generator": (AutoConfig, AutoTokenizer, AutoModel),
 }
 
 MODEL_PATH_MAP = {
