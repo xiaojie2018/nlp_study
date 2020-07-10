@@ -17,6 +17,7 @@ import random
 from tqdm import tqdm
 from torch.utils.data import TensorDataset
 from mertics import metrics_report
+from text_augment import word_level_augment
 
 
 logger = logging.getLogger(__name__)
@@ -38,9 +39,10 @@ class InputExample(object):
         label: (Optional) string. The intent label of the example.
     """
 
-    def __init__(self, guid, text, label=None):
+    def __init__(self, guid, text, text_b=None, label=None):
         self.guid = guid
         self.text = text
+        self.text_b = text_b
         self.label = label
 
     def __repr__(self):
@@ -103,22 +105,45 @@ class ClassificationDataPreprocess:
         tokenizer.add_special_tokens({"additional_special_tokens": self.ADDITIONAL_SPECIAL_TOKENS})
         return tokenizer
 
-    def get_data_txt(self, file):
+    # def get_data_txt(self, file):
+    #     contents = []
+    #     labels = []
+    #     with open(file, 'r', encoding='UTF-8') as f:
+    #         for line in tqdm(f):
+    #             lin = line.strip()
+    #             if not lin:
+    #                 continue
+    #             content, label = lin.split('\t')
+    #             contents.append((content, label))
+    #             labels.append(label)
+    #
+    #             if len(contents) > 50:
+    #                 break
+    #     return contents, labels
+
+    @classmethod
+    def _get_data_txt(cls, file):
         contents = []
         labels = []
         with open(file, 'r', encoding='UTF-8') as f:
             for line in tqdm(f):
-                lin = line.strip()
-                if not lin:
-                    continue
-                content, label = lin.split('\t')
+                lin = line.replace('\n', '').split('\t')
+                content, label = lin[0], lin[1]
                 contents.append((content, label))
                 labels.append(label)
-
-                if len(contents) > 50:
-                    break
         return contents, labels
 
+    @classmethod
+    def _get_unsup_data_txt(cls, file):
+        contents = []
+        with open(file, 'r', encoding='UTF-8') as f:
+            for line in tqdm(f):
+                lin = line.replace('\n', '').split('\t')
+                content = lin[0]
+                contents.append(content)
+        return contents
+
+    @classmethod
     def get_data_json(self, file):
         contents = []
         labels = []
@@ -130,11 +155,7 @@ class ClassificationDataPreprocess:
                 content, label = lin['text'], lin['label']
                 contents.append((content, label))
                 labels.append(label)
-
-                if len(contents) > 50:
-                    break
         return contents, labels
-
 
     def convert_examples_to_features(self, examples, max_seq_len, tokenizer,
                                      cls_token='[CLS]',
@@ -162,6 +183,14 @@ class ClassificationDataPreprocess:
 
             tokens = tokenizer.tokenize(example.text)
             token_type_ids = [sequence_a_segment_id] * len(tokens)
+
+            # for ty in ["药物", "疾病", "检查科目", "症状", "细菌", "NoneType", "医学专科", "病毒"]:
+            #     tokens_y = tokenizer.tokenize(ty)
+            #     tokens += tokens_y
+            #     token_type_ids += [sequence_a_segment_id]*len(tokens_y)
+            #
+            #     tokens += [sep_token]
+            #     token_type_ids += [sequence_a_segment_id]
 
             # Add [CLS] token
             tokens = [cls_token] + tokens
@@ -236,6 +265,77 @@ class ClassificationDataPreprocess:
 
         pad_token_label_id = self.config.ignore_index
         features = self.convert_examples_to_features(examples, self.config.max_seq_len, self.tokenizer,
+                                                     pad_token_label_id=pad_token_label_id)
+
+        # Convert to Tensors and build dataset
+        all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+        all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
+        all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
+        all_labels_ids = torch.tensor([f.labels for f in features], dtype=torch.float32)
+
+        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_labels_ids)
+        return dataset
+
+    def _get_uda_train_data(self, data, unsup_train_data, label_id, train_batch_size, unsup_ratio, set_type="train"):
+
+        if set_type == 'train':
+            random.shuffle(data)
+
+        leng_label = len(label_id)
+        examples = []
+        for i, d in enumerate(data):
+            label = d[-1]
+            text = d[0]
+            guid = "%s-%s" % (set_type, i)
+            label_list = [0.0] * leng_label
+            label_list[label_id[label]] = 1.0
+
+            examples.append(InputExample(guid=guid, text=text, label=label_list))
+
+        unsup_examples = []
+        for i, d in enumerate(unsup_train_data):
+            text = d
+            guid = "%s-%s" % (set_type, i+len(examples))
+            label_list = [0.0] * leng_label
+            label_list[0] = 1.0
+
+            unsup_examples.append(InputExample(guid=guid, text=text, label=label_list))
+
+        unsup_batch_size = train_batch_size*unsup_ratio
+        o_examples = []
+        ind = 0
+        e = []
+        for i in range(len(examples)):
+            e.append(examples[i])
+            if (i+1) % train_batch_size == 0 and len(e) > 0:
+                start_pos = ind*unsup_batch_size
+                end_pos = (ind+1)*unsup_batch_size
+                if start_pos > len(unsup_examples) or end_pos > len(unsup_examples):
+                    ind = 0
+                    start_pos = ind * unsup_batch_size
+                    end_pos = (ind + 1) * unsup_batch_size
+                e1 = unsup_examples[start_pos: end_pos]
+                e2 = word_level_augment(e1)
+                e += e1
+                e += e2
+
+                o_examples.append(e)
+                e = []
+        if len(e) > 0:
+            end_pos = len(e)
+            e1 = unsup_examples[:end_pos]
+            e2 = word_level_augment(e1)
+            e += e1
+            e += e2
+            o_examples.append(e)
+            e = []
+
+        o_examples1 = []
+        for o in o_examples:
+            o_examples1 += o
+
+        pad_token_label_id = self.config.ignore_index
+        features = self.convert_examples_to_features(o_examples1, self.config.max_seq_len, self.tokenizer,
                                                      pad_token_label_id=pad_token_label_id)
 
         # Convert to Tensors and build dataset

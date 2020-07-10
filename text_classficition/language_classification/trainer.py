@@ -30,13 +30,16 @@ class Trainer:
         # self.config = self.config_class.from_pretrained(args.model_name_or_path)
         self.model = self.model_class(args.model_dir, args)
 
+        if self.args.is_uda_model:
+            self.unsup_ratio = self.args.unsup_ratio
+
         # GPU or CPU
         self.device = "cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu"
         self.model.to(self.device)
 
     def train(self):
         train_sampler = RandomSampler(self.train_dataset)
-        train_dataloader = DataLoader(self.train_dataset, sampler=train_sampler, batch_size=self.args.train_batch_size)
+        train_dataloader = DataLoader(self.train_dataset, sampler=train_sampler, batch_size=self.args.train_batch_size*(1+2*self.unsup_ratio))
 
         if self.args.max_steps > 0:
             t_total = self.args.max_steps
@@ -83,7 +86,10 @@ class Trainer:
                 inputs = {'input_ids': batch[0],
                           'attention_mask': batch[1],
                           'token_type_ids': batch[2],
-                          'label': batch[3]}
+                          'label': batch[3],
+                          "type": 'train',
+                          "global_step": global_step+1,
+                          "t_total": t_total}
                 outputs = self.model(**inputs)
                 loss = outputs[0]
                 # eval_results = self.evaluate('dev')

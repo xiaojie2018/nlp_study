@@ -8,6 +8,7 @@ import json
 from utils import ClassificationDataPreprocess
 from argparse import Namespace
 from trainer import Trainer
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 class LanguageModelClassificationPredict(ClassificationDataPreprocess):
@@ -40,14 +41,37 @@ class LanguageModelClassificationPredict(ClassificationDataPreprocess):
                 s1[k] = round(v, 6)
             result.append(s1)
 
-        return result
+        # return result
+        return [[x, y] for x, y in zip(texts, intent_preds_list)]
+
+
+def read_test_data(file):
+    from tqdm import tqdm
+    data = []
+    with open(file, 'r', encoding='utf-8') as f:
+        for line in tqdm(f):
+            data.append(line.replace('\n', ''))
+    return data
 
 
 if __name__ == '__main__':
-    file = '/output/model'
-    texts = ['sss', 'aaa']
+    model_type = ["bert", "ernie", "albert", "roberta", "bert_www", "xlnet_base", "xlnet_mid",
+                  'electra_base_discriminator', 'electra_small_discriminator']
+
+    file = "./output/model_{}".format(model_type[1])
+    # file = '/output/model'
+    texts = ["上半身肥胖型", "运动传导束受累", "手术后反流性胃炎", "口腔黏膜嗜酸性溃疡"]
     lcp = LanguageModelClassificationPredict(file)
     res = lcp.predict(texts)
     print(res)
 
+    test_file_path = "/home/hemei/xjie/bert_classification/ccks_7_1_competition_data/验证集"
+    texts = read_test_data(os.path.join(test_file_path, "entity_validation.txt"))
+    result = lcp.predict(texts)
+
+    output_file = './output_data/result_{}_3.txt'.format(model_type[1])
+    f = open(output_file, 'w', encoding='utf-8')
+    for s in result:
+        f.write('\t'.join(s) + '\n')
+    f.close()
 
