@@ -2,12 +2,12 @@
 # author: xiaojie
 # datetime: 2020/6/22 18:11
 # software: PyCharm
-
-
+from crf import CRF
 from transformers.modeling_bert import BertPreTrainedModel, BertModel
 import torch.nn as nn
 from config import MODEL_CLASSES
 from torch.nn import CrossEntropyLoss
+import torch
 
 from loss import LabelSmoothingCrossEntropy, FocalLoss
 
@@ -65,3 +65,42 @@ class LanguageSoftmaxForNer(BertPreTrainedModel):
                 loss = loss_fct(logits.view(-1, self.label_num), label.view(-1))
             outputs = (loss,) + outputs
         return outputs  # (loss), scores, (hidden_states), (attentions)
+
+
+class LanguageCrfForNer(BertPreTrainedModel):
+    def __init__(self, model_dir, args):
+        self.args = args
+        self.label_num = args.num_labels
+
+        self.config_class, _, config_model = MODEL_CLASSES[args.model_type]
+        bert_config = self.config_class.from_pretrained(args.model_name_or_path)
+        super(LanguageCrfForNer, self).__init__(bert_config)
+
+        self.bert = config_model.from_pretrained(args.model_name_or_path, config=bert_config)  # Load pretrained bert
+
+        self.dropout = nn.Dropout(self.args.dropout_rate)
+        self.classifier = nn.Linear(bert_config.hidden_size, self.label_num)
+        self.crf = CRF(num_tags=self.label_num, batch_first=True)
+        self.init_weights()
+
+    def forward(self, input_ids, attention_mask, token_type_ids, label=None, is_test=False):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
+        sequence_output = outputs[0]
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
+        outputs = (logits,)
+        if label is not None:
+            loss = self.crf(emissions=logits, tags=label, mask=attention_mask)
+
+            if is_test:
+                tags = self.crf.decode(logits, attention_mask)
+                outputs = (tags,)
+                outputs = (-1 * loss,) + outputs
+            else:
+                outputs = (-1 * loss,) + outputs
+        if label is None and not is_test:
+            tags = self.crf.decode(logits, attention_mask)
+            return tags
+        return outputs  # (loss), scores
+
+

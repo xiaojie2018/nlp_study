@@ -34,7 +34,7 @@ class Trainer:
         self.dev_examples = dev_examples
 
         # self.config_class, _, _ = MODEL_CLASSES[args.model_type]
-        self.model_class = MODEL_TASK[args.task_type]
+        self.model_class = MODEL_TASK[args.model_decode_fc]
         # self.config = self.config_class.from_pretrained(args.model_name_or_path)
         self.model = self.model_class(args.model_dir, args)
 
@@ -135,9 +135,9 @@ class Trainer:
                         witer.add_scalar("Test/total/f1", eval_results.get('total', {}).get("f1", 0), global_step)
 
                     if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
-                        # if eval_results.get("mean", {}).get("mean_f1-score", 0) > best_mean_precision:
-                        #     best_mean_precision = eval_results.get("mean", {}).get("mean_f1-score", 0)
-                        self.save_model(global_step)
+                        if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
+                            best_mean_precision = eval_results.get("total", {}).get("f1", 0)
+                        self.save_model()
 
                 if 0 < self.args.max_steps < global_step:
                     epoch_iterator.close()
@@ -153,9 +153,9 @@ class Trainer:
             witer.add_scalar("Test/total/recall", eval_results.get('total', {}).get("recall", 0), global_step)
             witer.add_scalar("Test/total/f1", eval_results.get('total', {}).get("f1", 0), global_step)
 
-            # if eval_results.get("mean", {}).get("mean_f1-score", 0) > best_mean_precision:
-            #     best_mean_precision = eval_results.get("mean", {}).get("mean_f1-score", 0)
-            self.save_model(global_step)
+            if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
+                best_mean_precision = eval_results.get("total", {}).get("f1", 0)
+            self.save_model()
 
             if 0 < self.args.max_steps < global_step:
                 train_iterator.close()
@@ -190,10 +190,15 @@ class Trainer:
             batch = tuple(t.to(self.device) for t in batch)  # GPU or CPU
 
             with torch.no_grad():
-                inputs = {"input_ids": batch[0], "attention_mask": batch[1], "token_type_ids": batch[2], "label": batch[3]}
+                inputs = {"input_ids": batch[0], "attention_mask": batch[1], "token_type_ids": batch[2], "label": batch[3], "is_test":True}
 
                 outputs = self.model(**inputs)
-            tmp_eval_loss, logits = outputs[:2]
+            if self.args.model_decode_fc == 'softmax':
+                tmp_eval_loss, logits = outputs[:2]
+            elif self.args.model_decode_fc == 'crf':
+                tmp_eval_loss, logits = outputs[:2]
+                logits = logits.squeeze(0)
+
             if self.args.n_gpu > 1:
                 tmp_eval_loss = tmp_eval_loss.mean()  # mean() to average on multi-gpu parallel evaluating
             eval_loss += tmp_eval_loss.item()
@@ -226,8 +231,10 @@ class Trainer:
             #         else:
             #             temp_1.append(self.args.id_label[out_label_ids[i][j]])
             #             temp_2.append(preds[i][j])
-
-        preds = np.argmax(preds, axis=2).tolist()
+        if self.args.model_decode_fc == "softmax":
+            preds = np.argmax(preds, axis=2).tolist()
+        elif self.args.model_decode_fc == 'crf':
+            preds = preds.tolist()
         out_label_ids = out_label_ids.tolist()
         out_lens = out_lens.tolist()
 
@@ -309,13 +316,13 @@ class Trainer:
 
     def save_model(self, step=0):
         # Save model checkpoint (Overwrite)
-        model_file_path = self.args.model_dir + f"_{step}"
+        model_file_path = self.args.model_dir
 
         if not os.path.exists(model_file_path):
             os.makedirs(model_file_path)
 
-        with codecs.open(os.path.join(model_file_path, '{}_config.json'.format(self.args.task_type)), 'w', encoding='utf-8') as fd:
-            json.dump(vars(self.args), fd, indent=4, ensure_ascii=False)
+        # with codecs.open(os.path.join(model_file_path, '{}_config.json'.format(self.args.task_type)), 'w', encoding='utf-8') as fd:
+        #     json.dump(vars(self.args), fd, indent=4, ensure_ascii=False)
 
         model_to_save = self.model.module if hasattr(self.model, 'module') else self.model
         model_to_save.save_pretrained(model_file_path)

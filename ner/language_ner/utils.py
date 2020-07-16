@@ -85,7 +85,7 @@ def set_seed(args):
         torch.cuda.manual_seed_all(args.seed)
 
 
-class ClassificationDataPreprocess:
+class NerDataPreprocess:
 
     def __init__(self, config):
 

@@ -4,7 +4,7 @@
 # software: PyCharm
 
 
-from utils import ClassificationDataPreprocess, init_logger
+from utils import NerDataPreprocess, init_logger
 from argparse import Namespace
 from trainer import Trainer
 import logging
@@ -16,14 +16,14 @@ init_logger()
 logger = logging.getLogger(__name__)
 
 
-class LanguageModelClassificationTrain(ClassificationDataPreprocess):
+class LanguageModelNerTrain(NerDataPreprocess):
 
     def __init__(self, config_params):
         self.config = Namespace(**config_params)
         self.config.no_cuda = False
         self.model_save_path = self.config.model_save_path
 
-        super(LanguageModelClassificationTrain, self).__init__(self.config)
+        super(LanguageModelNerTrain, self).__init__(self.config)
 
     def data_preprocess(self):
 
@@ -116,7 +116,7 @@ if __name__ == '__main__':
         "dev_file_url": "./o_data/train.json",
         "job_name": "ner",
         "model_save_path": "./output/model",
-        "model_decode_fc": ["softmax", "crf", "span"][0],
+        "model_decode_fc": ["softmax", "crf", "span"][1],
         "loss_type": ['lsr', 'focal', 'ce'][0],
         "do_adv": False,
         "adv_epsilon": 1.0,
@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
     config_params['model_type'] = model_type[0]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
-    config_params['model_save_path'] = "./output/model_{}_{}/check_point".format(config_params['model_type'], config_params['model_decode_fc'])
-    lc = LanguageModelClassificationTrain(config_params)
+    config_params['model_save_path'] = "./output/model_{}_{}".format(config_params['model_type'], config_params['model_decode_fc'])
+    lc = LanguageModelNerTrain(config_params)
     lc.data_preprocess()
     lc.fit()

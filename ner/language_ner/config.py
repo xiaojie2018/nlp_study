@@ -31,8 +31,9 @@ MODEL_PATH_MAP = {
 }
 
 
-from model import LanguageSoftmaxForNer
+from model import LanguageSoftmaxForNer, LanguageCrfForNer
 
 MODEL_TASK = {
-    "classification": LanguageSoftmaxForNer
+    "softmax": LanguageSoftmaxForNer,
+    "crf": LanguageCrfForNer
 }
