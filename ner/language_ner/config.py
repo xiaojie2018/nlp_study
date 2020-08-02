@@ -17,9 +17,9 @@ MODEL_CLASSES = {
     "xlnet_base": (XLNetConfig, XLNetTokenizer, XLNetModel),
     "xlnet_mid": (XLNetConfig, XLNetTokenizer, XLNetModel),
     "electra_base_discriminator": (AutoConfig, AutoTokenizer, AutoModel),
-    "electra_base_generator": (AutoConfig, AutoTokenizer, AutoModel),
+    # "electra_base_generator": (AutoConfig, AutoTokenizer, AutoModel),
     "electra_small_discriminator": (AutoConfig, AutoTokenizer, AutoModel),
-    "electra_small_generator": (AutoConfig, AutoTokenizer, AutoModel),
+    # "electra_small_generator": (AutoConfig, AutoTokenizer, AutoModel),
 }
 
 MODEL_PATH_MAP = {
@@ -31,9 +31,10 @@ MODEL_PATH_MAP = {
 }
 
 
-from model import LanguageSoftmaxForNer, LanguageCrfForNer
+from model import LanguageSoftmaxForNer, LanguageCrfForNer, LanguageSpanForNer
 
 MODEL_TASK = {
     "softmax": LanguageSoftmaxForNer,
-    "crf": LanguageCrfForNer
+    "crf": LanguageCrfForNer,
+    "span": LanguageSpanForNer
 }

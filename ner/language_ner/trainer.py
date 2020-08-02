@@ -10,12 +10,12 @@ import json
 import codecs
 from adversarial import FGM
 from mertics import name_entity_recognition_metric
-from utils import set_seed, collate_fn, jiexi
+from utils import set_seed, collate_fn, jiexi, bert_extract_item, get_extract_item
 from config import MODEL_CLASSES, MODEL_TASK
-from model import LanguageSoftmaxForNer
+from model import LanguageSoftmaxForNer, LanguageCrfForNer, LanguageSpanForNer
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from transformers import BertConfig, AdamW, get_linear_schedule_with_warmup
 from tensorboardX import SummaryWriter
 import copy
@@ -32,6 +32,14 @@ class Trainer:
         self.train_examples = train_examples
         self.test_examples = test_examples
         self.dev_examples = dev_examples
+
+        self.ten_labels = set()
+
+        for x in self.args.labels:
+            if x.startswith("B-") or x.startswith("I-"):
+                self.ten_labels.add(x[2:])
+
+        self.ten_labels = sorted(list(self.ten_labels))
 
         # self.config_class, _, _ = MODEL_CLASSES[args.model_type]
         self.model_class = MODEL_TASK[args.model_decode_fc]
@@ -56,14 +64,79 @@ class Trainer:
             t_total = len(train_dataloader) // self.args.gradient_accumulation_steps * self.args.num_train_epochs
 
         # Prepare optimizer and schedule (linear warmup and decay)
-        no_decay = ['bias', 'LayerNorm.weight']
-        optimizer_grouped_parameters = [
-            {'params': [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay)],
-             'weight_decay': self.args.weight_decay},
-            {'params': [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
-        ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
-        scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=self.args.warmup_steps, num_training_steps=t_total)
+        if self.args.model_decode_fc == 'softmax':
+            no_decay = ['bias', 'LayerNorm.weight']
+            optimizer_grouped_parameters = [
+                {'params': [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay)],
+                 'weight_decay': self.args.weight_decay},
+                {'params': [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+            ]
+
+            self.args.warmup_steps = int(t_total * self.args.warmup_proportion)
+            optimizer = AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
+            scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=self.args.warmup_steps, num_training_steps=t_total)
+
+        elif self.args.model_decode_fc == 'crf':
+            no_decay = ["bias", "LayerNorm.weight"]
+            bert_param_optimizer = list(self.model.bert.named_parameters())
+            crf_param_optimizer = list(self.model.crf.named_parameters())
+            linear_param_optimizer = list(self.model.classifier.named_parameters())
+            optimizer_grouped_parameters = [
+                {'params': [p for n, p in bert_param_optimizer if not any(nd in n for nd in no_decay)],
+                 'weight_decay': self.args.weight_decay, 'lr': self.args.learning_rate},
+                {'params': [p for n, p in bert_param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0,
+                 'lr': self.args.learning_rate},
+
+                {'params': [p for n, p in crf_param_optimizer if not any(nd in n for nd in no_decay)],
+                 'weight_decay': self.args.weight_decay, 'lr': self.args.crf_learning_rate},
+                {'params': [p for n, p in crf_param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0,
+                 'lr': self.args.crf_learning_rate},
+
+                {'params': [p for n, p in linear_param_optimizer if not any(nd in n for nd in no_decay)],
+                 'weight_decay': self.args.weight_decay, 'lr': self.args.crf_learning_rate},
+                {'params': [p for n, p in linear_param_optimizer if any(nd in n for nd in no_decay)],
+                 'weight_decay': 0.0,
+                 'lr': self.args.crf_learning_rate}
+            ]
+            self.args.warmup_steps = int(t_total * self.args.warmup_proportion)
+            optimizer = AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
+            scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                        num_warmup_steps=self.args.warmup_steps,
+                                                        num_training_steps=t_total)
+
+        elif self.args.model_decode_fc == 'span':
+            no_decay = ["bias", "LayerNorm.weight"]
+            bert_parameters = self.model.bert.named_parameters()
+            start_parameters = self.model.start_fc.named_parameters()
+            end_parameters = self.model.end_fc.named_parameters()
+            optimizer_grouped_parameters = [
+                {"params": [p for n, p in bert_parameters if not any(nd in n for nd in no_decay)],
+                 "weight_decay": self.args.weight_decay, 'lr': self.args.learning_rate},
+                {"params": [p for n, p in bert_parameters if any(nd in n for nd in no_decay)], "weight_decay": 0.0
+                    , 'lr': self.args.learning_rate},
+
+                {"params": [p for n, p in start_parameters if not any(nd in n for nd in no_decay)],
+                 "weight_decay": self.args.weight_decay, 'lr': self.args.start_learning_rate},
+                {"params": [p for n, p in start_parameters if any(nd in n for nd in no_decay)], "weight_decay": 0.0
+                    , 'lr': self.args.start_learning_rate},
+
+                {"params": [p for n, p in end_parameters if not any(nd in n for nd in no_decay)],
+                 "weight_decay": self.args.weight_decay, 'lr': self.args.end_learning_rate},
+                {"params": [p for n, p in end_parameters if any(nd in n for nd in no_decay)], "weight_decay": 0.0
+                    , 'lr': self.args.end_learning_rate},
+            ]
+            # optimizer_grouped_parameters = [
+            #     {"params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            #      "weight_decay": args.weight_decay, },
+            #     {"params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], "weight_decay": 0.0},
+            # ]
+            self.args.warmup_steps = int(t_total * self.args.warmup_proportion)
+            optimizer = AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate, eps=self.args.adam_epsilon)
+            scheduler = get_linear_schedule_with_warmup(optimizer,
+                                                        num_warmup_steps=self.args.warmup_steps,
+                                                        num_training_steps=t_total)
+        else:
+            raise Exception("Some model files might be missing ... ")
 
         # Train!
         logger.info("***** Running training *****")
@@ -85,8 +158,8 @@ class Trainer:
         train_iterator = trange(int(self.args.num_train_epochs), desc="Epoch")
         set_seed(self.args)
 
-        if self.args.do_adv:
-            fgm = FGM(self.model, emb_name=self.args.adv_name, epsilon=self.args.adv_epsilon)
+        # if self.args.do_adv:
+        #     fgm = FGM(self.model, emb_name=self.args.adv_name, epsilon=self.args.adv_epsilon)
 
         for _ in train_iterator:
             epoch_iterator = tqdm(train_dataloader, desc="Iteration")
@@ -94,26 +167,44 @@ class Trainer:
                 self.model.train()
                 batch = tuple(t.to(self.device) for t in batch)  # GPU or CPU
 
-                inputs = {"input_ids": batch[0], "attention_mask": batch[1], "token_type_ids": batch[2], "label": batch[3]}
+                if self.args.model_decode_fc in ['softmax', 'crf']:
 
-                outputs = self.model(**inputs)
-                loss = outputs[0]
+                    inputs = {"input_ids": batch[0],
+                              "attention_mask": batch[1],
+                              "token_type_ids": batch[2],
+                              "label": batch[3]}
+
+                    outputs = self.model(**inputs)
+                    loss = outputs[0]
+
+                elif self.args.model_decode_fc == 'span':
+                    inputs = {"input_ids": batch[0],
+                              "attention_mask": batch[1],
+                              "token_type_ids": batch[2],
+                              "start_positions": batch[3],
+                              "end_positions": batch[4]}
+
+                    outputs = self.model(**inputs)
+                    loss = outputs[0]
 
                 # eval_results = self.evaluate('dev')
                 # print(1)
+
+                if self.args.n_gpu > 1:
+                    loss = loss.mean()
 
                 if self.args.gradient_accumulation_steps > 1:
                     loss = loss / self.args.gradient_accumulation_steps
 
                 loss.backward()
 
-                if self.args.do_adv:
-                    fgm.attack()
-                    loss_adv = self.model(**inputs)[0]
-                    if self.args.n_gpu > 1:
-                        loss_adv = loss_adv.mean()
-                    loss_adv.backward()
-                    fgm.restore()
+                # if self.args.do_adv:
+                #     fgm.attack()
+                #     loss_adv = self.model(**inputs)[0]
+                #     if self.args.n_gpu > 1:
+                #         loss_adv = loss_adv.mean()
+                #     loss_adv.backward()
+                #     fgm.restore()
 
                 tr_loss += loss.item()
                 if (step + 1) % self.args.gradient_accumulation_steps == 0:
@@ -128,11 +219,14 @@ class Trainer:
                         eval_results = self.evaluate('dev')
 
                         witer.add_scalar("Test/loss", eval_results.get("loss", 0), global_step)
-                        witer.add_scalar("Test/total/precision", eval_results.get('total', {}).get("precision", 0),
-                                         global_step)
-                        witer.add_scalar("Test/total/recall", eval_results.get('total', {}).get("recall", 0),
-                                         global_step)
+                        witer.add_scalar("Test/total/precision", eval_results.get('total', {}).get("precision", 0), global_step)
+                        witer.add_scalar("Test/total/recall", eval_results.get('total', {}).get("recall", 0), global_step)
                         witer.add_scalar("Test/total/f1", eval_results.get('total', {}).get("f1", 0), global_step)
+
+                        for x in self.ten_labels:
+                            witer.add_scalar(f"Test/{x}/precision", eval_results.get(x, {}).get("precision", 0), global_step)
+                            witer.add_scalar(f"Test/{x}/recall", eval_results.get(x, {}).get("recall", 0), global_step)
+                            witer.add_scalar(f"Test/{x}/f1", eval_results.get(x, {}).get("f1", 0), global_step)
 
                     if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
                         if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
@@ -152,6 +246,11 @@ class Trainer:
             witer.add_scalar("Test/total/precision", eval_results.get('total', {}).get("precision", 0), global_step)
             witer.add_scalar("Test/total/recall", eval_results.get('total', {}).get("recall", 0), global_step)
             witer.add_scalar("Test/total/f1", eval_results.get('total', {}).get("f1", 0), global_step)
+
+            for x in self.ten_labels:
+                witer.add_scalar(f"Test/{x}/precision", eval_results.get(x, {}).get("precision", 0), global_step)
+                witer.add_scalar(f"Test/{x}/recall", eval_results.get(x, {}).get("recall", 0), global_step)
+                witer.add_scalar(f"Test/{x}/f1", eval_results.get(x, {}).get("f1", 0), global_step)
 
             if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
                 best_mean_precision = eval_results.get("total", {}).get("f1", 0)
@@ -173,7 +272,8 @@ class Trainer:
         else:
             raise Exception("Only dev and test dataset available")
 
-        eval_dataloader = DataLoader(eval_dataset, batch_size=self.args.train_batch_size)
+        if self.args.model_decode_fc in ['softmax', 'crf']:
+            eval_dataloader = DataLoader(eval_dataset, batch_size=self.args.train_batch_size)
         # Eval!
         logger.info("***** Running evaluation %s *****", prefix)
         logger.info("  Num examples = %d", len(eval_dataset))
@@ -185,34 +285,108 @@ class Trainer:
         out_label_ids = None
         out_lens = None
 
-        for step, batch in enumerate(eval_dataloader):
-            self.model.eval()
-            batch = tuple(t.to(self.device) for t in batch)  # GPU or CPU
+        start_preds = None
+        end_preds = None
+        out_start_ids = None
+        out_end_ids = None
 
-            with torch.no_grad():
-                inputs = {"input_ids": batch[0], "attention_mask": batch[1], "token_type_ids": batch[2], "label": batch[3], "is_test":True}
+        if self.args.model_decode_fc in ['softmax', 'crf']:
 
-                outputs = self.model(**inputs)
-            if self.args.model_decode_fc == 'softmax':
-                tmp_eval_loss, logits = outputs[:2]
-            elif self.args.model_decode_fc == 'crf':
-                tmp_eval_loss, logits = outputs[:2]
-                logits = logits.squeeze(0)
+            epoch_iterator = tqdm(eval_dataloader, desc="eval_Iteration")
+
+            for step, batch in enumerate(epoch_iterator):
+                self.model.eval()
+                batch = tuple(t.to(self.device) for t in batch)  # GPU or CPU
+
+                with torch.no_grad():
+                    inputs = {"input_ids": batch[0],
+                              "attention_mask": batch[1],
+                              "token_type_ids": batch[2],
+                              "label": batch[3],
+                              "is_test": True}
+
+                    outputs = self.model(**inputs)
+
+                if self.args.model_decode_fc == 'softmax':
+                    tmp_eval_loss, logits = outputs[:2]
+                elif self.args.model_decode_fc == 'crf':
+                    tmp_eval_loss, logits = outputs[:2]
+                    logits = logits.squeeze(0)
+
+                if self.args.n_gpu > 1:
+                    tmp_eval_loss = tmp_eval_loss.mean()  # mean() to average on multi-gpu parallel evaluating
+                eval_loss += tmp_eval_loss.item()
+                nb_eval_steps += 1
+
+                if preds is None:
+                    preds = logits.detach().cpu().numpy()
+                    out_label_ids = inputs['label'].detach().cpu().numpy()
+                    out_lens = batch[4].detach().cpu().numpy()
+
+                else:
+                    preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+                    out_label_ids = np.append(out_label_ids, inputs['label'].detach().cpu().numpy(), axis=0)
+                    out_lens = np.append(out_lens, batch[4].detach().cpu().numpy())
+
+        elif self.args.model_decode_fc == 'span':
+
+            features = eval_dataset
+
+            all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+            all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+            all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+            all_start_ids = torch.tensor([f.start_ids for f in features], dtype=torch.long)
+            all_end_ids = torch.tensor([f.end_ids for f in features], dtype=torch.long)
+            all_input_lens = torch.tensor([f.input_len for f in features], dtype=torch.long)
+            dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_start_ids, all_end_ids,
+                                    all_input_lens)
+
+            subjects = [f.subjects for f in features]
+
+            eval_dataloader = DataLoader(dataset, batch_size=self.args.train_batch_size)
+
+            epoch_iterator = tqdm(eval_dataloader, desc='eval_Iteration')
+
+            for step, batch in enumerate(epoch_iterator):
+
+                self.model.eval()
+                batch = tuple(t.to(self.device) for t in batch)  # GPU or CPU
+
+                with torch.no_grad():
+                    inputs = {"input_ids": batch[0],
+                              "attention_mask": batch[1],
+                              "token_type_ids": batch[2],
+                              "start_positions": batch[3],
+                              "end_positions": batch[4]}
+
+                    outputs = self.model(**inputs)
+
+            tmp_eval_loss, start_logits, end_logits = outputs[:3]
 
             if self.args.n_gpu > 1:
-                tmp_eval_loss = tmp_eval_loss.mean()  # mean() to average on multi-gpu parallel evaluating
-            eval_loss += tmp_eval_loss.item()
+                tmp_eval_loss = tmp_eval_loss.mean()
+
+            tmp_eval_loss += tmp_eval_loss.item()
+
             nb_eval_steps += 1
 
-            if preds is None:
-                preds = logits.detach().cpu().numpy()
-                out_label_ids = inputs['label'].detach().cpu().numpy()
-                out_lens = batch[4].detach().cpu().numpy()
+            if start_preds is None:
+                start_preds = start_logits.detach().cpu().numpy()
+                end_preds = end_logits.detach().cpu().numpy()
+
+                out_start_ids = inputs['start_positions'].detach().cpu().numpy()
+                out_end_ids = inputs['end_positions'].detach().cpu().numpy()
+
+                out_lens = batch[5].detach().cpu().numpy()
 
             else:
-                preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-                out_label_ids = np.append(out_label_ids, inputs['label'].detach().cpu().numpy(), axis=0)
-                out_lens = np.append(out_lens, batch[4].detach().cpu().numpy())
+                start_preds = np.append(start_preds, start_logits.detach().cpu().numpy(), axis=0)
+                end_preds = np.append(end_preds, end_logits.detach().cpu().numpy(), axis=0)
+
+                out_start_ids = np.append(out_start_ids, inputs['start_positions'].detach().cpu().numpy(), axis=0)
+                out_end_ids = np.append(out_end_ids, inputs['end_positions'].detach().cpu().numpy(), axis=0)
+
+                out_lens = np.append(out_lens, batch[5].detach().cpu().numpy())
 
             # preds = np.argmax(logits.cpu().numpy(), axis=2).tolist()
 
@@ -231,23 +405,60 @@ class Trainer:
             #         else:
             #             temp_1.append(self.args.id_label[out_label_ids[i][j]])
             #             temp_2.append(preds[i][j])
-        if self.args.model_decode_fc == "softmax":
-            preds = np.argmax(preds, axis=2).tolist()
-        elif self.args.model_decode_fc == 'crf':
-            preds = preds.tolist()
-        out_label_ids = out_label_ids.tolist()
-        out_lens = out_lens.tolist()
 
-        r_ps = []
-        r_os = []
-        for x, y, z, t in zip(preds, out_label_ids, out_lens, self.dev_examples):
-            x1 = [self.args.id_label[x[i]] for i in range(1, z-1)]
-            y1 = [self.args.id_label[y[i]] for i in range(1, z-1)]
-            words0 = t.text[:len(x1)]
-            r_p = jiexi(words0, x1)
-            r_o = jiexi(words0, y1)
-            r_ps.append({'text': "".join(t.text), "entities": r_p})
-            r_os.append({'text': "".join(t.text), "entities": r_o})
+        if self.args.model_decode_fc in ['softmax', 'crf']:
+            if self.args.model_decode_fc == "softmax":
+                preds = np.argmax(preds, axis=2).tolist()
+            elif self.args.model_decode_fc == 'crf':
+                preds = preds.tolist()
+            out_label_ids = out_label_ids.tolist()
+            out_lens = out_lens.tolist()
+
+            r_ps = []
+            r_os = []
+            for x, y, z, t in zip(preds, out_label_ids, out_lens, self.dev_examples):
+                x1 = [self.args.id_label[x[i]] for i in range(1, z-1)]
+                y1 = [self.args.id_label[y[i]] for i in range(1, z-1)]
+                words0 = t.text[:len(x1)]
+                r_p = jiexi(words0, x1)
+                r_o = jiexi(words0, y1)
+                r_ps.append({'text': "".join(t.text), "entities": r_p})
+                r_os.append({'text': "".join(t.text), "entities": r_o})
+
+        elif self.args.model_decode_fc == 'span':
+            start_preds = start_preds.tolist()
+            end_preds = end_preds.tolist()
+
+            r_ps = []
+            r_os = []
+
+            for ind, (y, z, t) in enumerate(zip(subjects, out_lens, self.dev_examples)):
+
+                start_preds_i = [start_preds[ind][i] for i in range(1, z-1)]
+                end_preds_i = [end_preds[ind][i] for i in range(1, z - 1)]
+
+                S = get_extract_item(start_preds_i, end_preds_i)
+
+                r_p = []
+                for y1 in S:
+                    r_p.append({
+                        "entity_type": self.args.id_label[y1[0]],
+                        "start_pos": y1[1],
+                        "end_pos": y1[2] + 1,
+                        "word": "".join(t.text[y1[1]: y1[2]+1])
+                    })
+
+                r_o = []
+                for y1 in y:
+                    r_o.append({
+                        "entity_type": self.args.id_label[y1[0]],
+                        "start_pos": y1[1],
+                        "end_pos": y1[2] + 1,
+                        "word": "".join(t.text[y1[1]: y1[2] + 1])
+                    })
+
+                r_ps.append({"text": "".join(t.text), "entities": r_p})
+                r_os.append({"text": "".join(t.text), "entities": r_o})
 
         rpt_info, cf_mat_df, pred_std_cmp_ner_infos, entity_type_list = name_entity_recognition_metric(r_ps, r_os)
 
@@ -271,48 +482,130 @@ class Trainer:
         return results
 
     def evaluate_test(self, dataset):
-        eval_dataloader = DataLoader(dataset, batch_size=self.args.eval_batch_size)
+
+        if self.args.model_decode_fc in ['softmax', 'crf']:
+            eval_dataloader = DataLoader(dataset, batch_size=self.args.eval_batch_size)
 
         # Eval!
-        logger.info("***** Running evaluation on %s dataset *****", "predict")
-        logger.info("  Num examples = %d", len(dataset))
-        logger.info("  Batch size = %d", self.args.eval_batch_size)
+        preds = None
+        out_label_ids = None
+        out_lens = None
 
-        intent_preds = None
+        start_preds = None
+        end_preds = None
 
-        self.model.eval()
+        if self.args.model_decode_fc in ['softmax', 'crf']:
 
-        for batch in tqdm(eval_dataloader, desc="Evaluating"):
-            batch = tuple(t.to(self.device) for t in batch)
-            with torch.no_grad():
-                inputs = {'input_ids': batch[0],
-                          'attention_mask': batch[1],
-                          'token_type_ids': batch[2],
-                          'label': batch[3]}
-                outputs = self.model(**inputs)
-                tmp_eval_loss, (intent_logits) = outputs[:2]
+            for step, batch in enumerate(eval_dataloader):
+                self.model.eval()
+                batch = tuple(t.to(self.device) for t in batch)  # GPU or CPU
 
-            # Intent prediction
-            if intent_preds is None:
-                intent_preds = intent_logits.detach().cpu().numpy()
+                with torch.no_grad():
+                    inputs = {"input_ids": batch[0],
+                              "attention_mask": batch[1],
+                              "token_type_ids": batch[2],}
+                              # "label": batch[3],
+                              # "is_test": True}
+
+                    outputs = self.model(**inputs)
+
+                if self.args.model_decode_fc == 'softmax':
+                    tmp_eval_loss, logits = outputs[:2]
+                elif self.args.model_decode_fc == 'crf':
+                    tmp_eval_loss, logits = outputs[:2]
+                    logits = logits.squeeze(0)
+
+                if preds is None:
+                    preds = logits.detach().cpu().numpy()
+                    out_lens = batch[4].detach().cpu().numpy()
+
+                else:
+                    preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
+                    out_lens = np.append(out_lens, batch[4].detach().cpu().numpy())
+
+            if self.args.model_decode_fc == "softmax":
+                preds = np.argmax(preds, axis=2).tolist()
+            elif self.args.model_decode_fc == 'crf':
+                preds = preds.tolist()
+
+            out_lens = out_lens.tolist()
+
+            r_ps = []
+            for x, z, t in zip(preds, out_lens, self.dev_examples):
+                x1 = [self.args.id_label[x[i]] for i in range(1, z-1)]
+                words0 = t.text[:len(x1)]
+                r_p = jiexi(words0, x1)
+                r_ps.append({'text': "".join(t.text), "entities": r_p})
+
+            return r_ps
+
+        elif self.args.model_decode_fc == 'span':
+
+            features = dataset
+
+            all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+            all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+            all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+            all_start_ids = torch.tensor([f.start_ids for f in features], dtype=torch.long)
+            all_end_ids = torch.tensor([f.end_ids for f in features], dtype=torch.long)
+            all_input_lens = torch.tensor([f.input_len for f in features], dtype=torch.long)
+            dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_start_ids, all_end_ids,
+                                    all_input_lens)
+
+            eval_dataloader = DataLoader(dataset, batch_size=self.args.train_batch_size)
+
+            for step, batch in enumerate(eval_dataloader):
+                self.model.eval()
+                batch = tuple(t.to(self.device) for t in batch)  # GPU or CPU
+
+                with torch.no_grad():
+                    inputs = {"input_ids": batch[0],
+                              "attention_mask": batch[1],
+                              "token_type_ids": batch[2]}
+
+                    outputs = self.model(**inputs)
+
+            start_logits, end_logits = outputs[:2]
+
+            if start_preds is None:
+                start_preds = start_logits.detach().cpu().numpy()
+                end_preds = end_logits.detach().cpu().numpy()
+
+                out_lens = batch[5].detach().cpu().numpy()
+
             else:
-                intent_preds = np.append(intent_preds, intent_logits.detach().cpu().numpy(), axis=0)
+                start_preds = np.append(start_preds, start_logits.detach().cpu().numpy(), axis=0)
+                end_preds = np.append(end_preds, end_logits.detach().cpu().numpy(), axis=0)
 
-        intent_preds_list = []
-        intent_preds_list_all = []
-        intent_preds_list_pr = []
-        intent_label_map = {int(k): v for k, v in self.args.id_label.items()}
+                out_lens = np.append(out_lens, batch[5].detach().cpu().numpy())
 
-        for i in range(intent_preds.shape[0]):
-            p1 = intent_preds[i].tolist()
-            intent_preds_list.append(intent_label_map[p1.index(max(p1))])
-            intent_preds_list_pr.append(max(p1))
-            p2 = {}
-            for j, o in enumerate(p1):
-                p2[intent_label_map[j]] = o
-            intent_preds_list_all.append(p2)
+            start_preds = start_preds.tolist()
+            end_preds = end_preds.tolist()
 
-        return intent_preds_list, intent_preds_list_pr, intent_preds_list_all
+            r_ps = []
+
+            for ind, (z, t) in enumerate(zip(out_lens, self.dev_examples)):
+
+                start_preds_i = [start_preds[ind][i] for i in range(1, z - 1)]
+                end_preds_i = [end_preds[ind][i] for i in range(1, z - 1)]
+
+                S = get_extract_item(start_preds_i, end_preds_i)
+
+                r_p = []
+                for y1 in S:
+                    r_p.append({
+                        "entity_type": self.args.id_label[y1[0]],
+                        "start_pos": y1[1],
+                        "end_pos": y1[2] + 1,
+                        "word": "".join(t.text[y1[1]: y1[2] + 1])
+                    })
+
+                r_ps.append({"text": "".join(t.text), "entities": r_p})
+
+            return r_ps
+
+        else:
+            return []
 
     def save_model(self, step=0):
         # Save model checkpoint (Overwrite)
@@ -337,8 +630,7 @@ class Trainer:
             raise Exception("Model doesn't exists! Train first!")
 
         try:
-            self.model = self.model_class.from_pretrained(model_file_path,
-                                                          args=self.args)
+            self.model = self.model_class.from_pretrained(model_file_path, args=self.args)
             self.model.to(self.device)
             logger.info("***** Model Loaded *****")
         except:

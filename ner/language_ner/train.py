@@ -21,9 +21,19 @@ class LanguageModelNerTrain(NerDataPreprocess):
     def __init__(self, config_params):
         self.config = Namespace(**config_params)
         self.config.no_cuda = False
+
+        self.config.task_type = "ner"
+
         self.model_save_path = self.config.model_save_path
 
+        self.config.model_name_or_path = self.config.pretrained_model_path
+
         super(LanguageModelNerTrain, self).__init__(self.config)
+
+        self.config.model_dir = self.model_save_path
+
+        if self.config.model_decode_fc not in ['softmax', 'crf', 'span']:
+            raise Exception("model_decode_fc might be missing ... ")
 
     def data_preprocess(self):
 
@@ -31,27 +41,48 @@ class LanguageModelNerTrain(NerDataPreprocess):
         test_data, labels2 = self.get_data(self.config.test_file_url)
         dev_data, labels3 = self.get_data(self.config.dev_file_url)
 
-        label_list = sorted(list(set(labels1 + labels2 + labels3)))
+        if self.config.model_decode_fc in ['softmax', 'crf']:
 
-        labels = ['O']
-        for l in label_list:
-            labels.append("B-{}".format(l))
-            labels.append("I-{}".format(l))
+            label_list = sorted(list(set(labels1 + labels2 + labels3)))
 
-        self.labels = labels
-        self.config.num_labels = len(labels)
-        self.label_id = {l: ind for ind, l in enumerate(labels)}
-        self.id_label = {ind: l for ind, l in enumerate(labels)}
-        self.config.label_id = self.label_id
-        self.config.id_label = self.id_label
-        self.config.labels = self.labels
+            labels = ['O']
+            for l in label_list:
+                labels.append("B-{}".format(l))
+                labels.append("I-{}".format(l))
 
-        self.train_data, self.train_examples = self._get_data(train_data, labels, self.label_id, set_type="train")
-        logger.info("train data num: {} ".format(str(len(train_data))))
-        self.test_data, self.test_examples = self._get_data(test_data, labels, self.label_id, set_type="test")
-        logger.info("test data num: {} ".format(str(len(test_data))))
-        self.dev_data, self.dev_examples = self._get_data(dev_data, labels, self.label_id, set_type="dev")
-        logger.info("dev data num: {} ".format(str(len(dev_data))))
+            self.labels = labels
+            self.config.num_labels = len(labels)
+            self.label_id = {l: ind for ind, l in enumerate(labels)}
+            self.id_label = {ind: l for ind, l in enumerate(labels)}
+            self.config.label_id = self.label_id
+            self.config.id_label = self.id_label
+            self.config.labels = self.labels
+
+            self.train_data, self.train_examples = self._get_data(train_data, labels, self.label_id, set_type="train")
+            logger.info("train data num: {} ".format(str(len(train_data))))
+            self.test_data, self.test_examples = self._get_data(test_data, labels, self.label_id, set_type="test")
+            logger.info("test data num: {} ".format(str(len(test_data))))
+            self.dev_data, self.dev_examples = self._get_data(dev_data, labels, self.label_id, set_type="dev")
+            logger.info("dev data num: {} ".format(str(len(dev_data))))
+
+        elif self.config.model_decode_fc == 'span':
+            label_list = sorted(list(set(labels1 + labels2 + labels3)))
+            labels = ['O'] + label_list
+
+            self.labels = labels
+            self.config.num_labels = len(labels)
+            self.label_id = {l: ind for ind, l in enumerate(labels)}
+            self.id_label = {ind: l for ind, l in enumerate(labels)}
+            self.config.label_id = self.label_id
+            self.config.id_label = self.id_label
+            self.config.labels = self.labels
+
+            self.train_data, self.train_examples = self._get_span_data(train_data, labels, self.label_id, set_type="train")
+            logger.info("train data num: {} ".format(str(len(train_data))))
+            self.test_data, self.test_examples = self._get_span_data(test_data, labels, self.label_id, set_type="test")
+            logger.info("test data num: {} ".format(str(len(test_data))))
+            self.dev_data, self.dev_examples = self._get_span_data(dev_data, labels, self.label_id, set_type="dev")
+            logger.info("dev data num: {} ".format(str(len(dev_data))))
 
     def fit(self):
 
@@ -60,7 +91,17 @@ class LanguageModelNerTrain(NerDataPreprocess):
         self.config.model_save_path = self.model_save_path
         self.config.model_dir = self.model_save_path
 
-        with codecs.open(os.path.join(self.model_save_path, '{}_config.json'.format(self.config.task_type)), 'w', encoding='utf-8') as fd:
+        vocab_file = os.path.join(self.config.pretrained_model_path, "vocab.txt")
+        out_vocab_file = os.path.join(self.model_save_path, "vocab.txt")
+
+        f_w = open(out_vocab_file, 'w')
+        with open(vocab_file, 'r') as f_r:
+            for line in f_r:
+                f_w.write(line)
+        f_w.close()
+        f_r.close()
+
+        with codecs.open(os.path.join(self.model_save_path, 'ner_config.json'), 'w', encoding='utf-8') as fd:
             json.dump(vars(self.config), fd, indent=4, ensure_ascii=False)
 
         self.trainer = Trainer(self.config,
@@ -81,7 +122,7 @@ class LanguageModelNerTrain(NerDataPreprocess):
 
 if __name__ == '__main__':
     config_params = {
-        "algorithm_id": 19,
+        "algorithm_id": 116,
         "hyper_param_strategy": "CUSTOMED",
         "ADDITIONAL_SPECIAL_TOKENS": [],
         "model_dir": "./output",
@@ -89,19 +130,20 @@ if __name__ == '__main__':
         "model_type": "bert",
         "task_type": "classification",
         "model_name_or_path": ["E:\\nlp_tools\\bert_models\\bert-base-chinese", "/home/hemei/xjie/bert_models/bert-base-chinese"][1],
-        "seed": 1234,
+        "seed": 42,
         "train_batch_size": 32,
         "eval_batch_size": 32,
         "max_seq_len": 80,
         "learning_rate": 5e-5,
         "num_train_epochs": 5,
-        "weight_decay": 0.0,
+        "weight_decay": 0.01,
         "gradient_accumulation_steps": 1,
         "adam_epsilon": 1e-8,
         "max_grad_norm": 1.0,
         "max_steps": -1,
         "warmup_steps": 0,
-        "dropout_rate": 0.1,
+        "warmup_proportion": 0.1,
+        "dropout_rate": 0.5,
         "logging_steps": 500,
         "save_steps": 500,
         "no_cuda": False,
@@ -116,11 +158,14 @@ if __name__ == '__main__':
         "dev_file_url": "./o_data/train.json",
         "job_name": "ner",
         "model_save_path": "./output/model",
-        "model_decode_fc": ["softmax", "crf", "span"][1],
-        "loss_type": ['lsr', 'focal', 'ce'][0],
+        "model_decode_fc": ["softmax", "crf", "span"][0],
+        "loss_type": ['lsr', 'focal', 'ce', 'bce', 'bce_with_log'][0],
         "do_adv": False,
         "adv_epsilon": 1.0,
-        "adv_name": 'word_embeddings'
+        "adv_name": 'word_embeddings',
+        "crf_learning_rate": 5e-5,
+        "start_learning_rate": 0.0001,
+        "end_learning_rate": 0.0001
     }
 
     model_type = ["bert", "ernie", "albert", "roberta", "bert_www", "xlnet_base", "xlnet_mid",
