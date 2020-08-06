@@ -130,7 +130,7 @@ class Trainer:
                     #     witer.add_scalar("Test/{}".format(k), eval_results.get(k, {}).get("recall", 0), global_step)
                     #     witer.add_scalar("Test/{}".format(k), eval_results.get(k, {}).get("f1", 0), global_step)
 
-                    if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
+                    # if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
                         if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
                             best_mean_precision = eval_results.get("total", {}).get("f1", 0)
                             self.save_model()
@@ -152,7 +152,7 @@ class Trainer:
             # witer.add_scalar("Test/sum", eval_results.get('sum', {}).get("sum_recall", 0), global_step)
             # witer.add_scalar("Test/sum", eval_results.get('sum', {}).get("sum_f1-score", 0), global_step)
 
-            if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
+            if eval_results.get("total", {}).get("f1", 0) >= best_mean_precision:
                 best_mean_precision = eval_results.get("total", {}).get("f1", 0)
                 self.save_model()
 

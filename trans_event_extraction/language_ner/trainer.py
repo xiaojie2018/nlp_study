@@ -231,7 +231,7 @@ class Trainer:
                     if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
                         if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
                             best_mean_precision = eval_results.get("total", {}).get("f1", 0)
-                        self.save_model()
+                            self.save_model()
 
                 if 0 < self.args.max_steps < global_step:
                     epoch_iterator.close()
@@ -254,7 +254,7 @@ class Trainer:
 
             if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
                 best_mean_precision = eval_results.get("total", {}).get("f1", 0)
-            self.save_model()
+                self.save_model()
 
             if 0 < self.args.max_steps < global_step:
                 train_iterator.close()
@@ -481,7 +481,7 @@ class Trainer:
             logger.info(info)
         return results
 
-    def evaluate_test(self, dataset):
+    def evaluate_test(self, dataset, dev_examples):
 
         if self.args.model_decode_fc in ['softmax', 'crf']:
             eval_dataloader = DataLoader(dataset, batch_size=self.args.eval_batch_size)
@@ -512,7 +512,7 @@ class Trainer:
                 if self.args.model_decode_fc == 'softmax':
                     tmp_eval_loss, logits = outputs[:2]
                 elif self.args.model_decode_fc == 'crf':
-                    tmp_eval_loss, logits = outputs[:2]
+                    logits = outputs
                     logits = logits.squeeze(0)
 
                 if preds is None:
@@ -531,7 +531,7 @@ class Trainer:
             out_lens = out_lens.tolist()
 
             r_ps = []
-            for x, z, t in zip(preds, out_lens, self.dev_examples):
+            for x, z, t in zip(preds, out_lens, dev_examples):
                 x1 = [self.args.id_label[x[i]] for i in range(1, z-1)]
                 words0 = t.text[:len(x1)]
                 r_p = jiexi(words0, x1)
@@ -584,7 +584,7 @@ class Trainer:
 
             r_ps = []
 
-            for ind, (z, t) in enumerate(zip(out_lens, self.dev_examples)):
+            for ind, (z, t) in enumerate(zip(out_lens, dev_examples)):
 
                 start_preds_i = [start_preds[ind][i] for i in range(1, z - 1)]
                 end_preds_i = [end_preds[ind][i] for i in range(1, z - 1)]

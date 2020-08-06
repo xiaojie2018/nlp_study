@@ -37,9 +37,14 @@ class LanguageModelNerTrain(NerDataPreprocess):
 
     def data_preprocess(self):
 
-        train_data, labels1 = self.get_data(self.config.train_file_url)
-        test_data, labels2 = self.get_data(self.config.test_file_url)
-        dev_data, labels3 = self.get_data(self.config.dev_file_url)
+        # train_data, labels1 = self.get_data_2(self.config.train_file_url)
+        train_data, labels1 = self.get_data_2(self.config.test_file_url)
+        train_data = train_data
+        test_data = train_data
+        dev_data = train_data
+        labels3 = labels1
+        labels2 = labels1
+        # dev_data, labels3 = self.get_data(self.config.dev_file_url)
 
         if self.config.model_decode_fc in ['softmax', 'crf']:
 
@@ -130,12 +135,12 @@ if __name__ == '__main__':
         "model_type": "bert",
         "task_type": "classification",
         "model_name_or_path": ["E:\\nlp_tools\\bert_models\\bert-base-chinese", "/home/hemei/xjie/bert_models/bert-base-chinese"][1],
-        "seed": 42,
-        "train_batch_size": 32,
-        "eval_batch_size": 32,
-        "max_seq_len": 80,
+        "seed": 1234,
+        "train_batch_size": 16,
+        "eval_batch_size": 16,
+        "max_seq_len": 200,
         "learning_rate": 5e-5,
-        "num_train_epochs": 5,
+        "num_train_epochs": 100,
         "weight_decay": 0.01,
         "gradient_accumulation_steps": 1,
         "adam_epsilon": 1e-8,
@@ -144,8 +149,8 @@ if __name__ == '__main__':
         "warmup_steps": 0,
         "warmup_proportion": 0.1,
         "dropout_rate": 0.5,
-        "logging_steps": 500,
-        "save_steps": 500,
+        "logging_steps": 50,
+        "save_steps": 50,
         "no_cuda": False,
         "ignore_index": 0,
         "do_train": True,
@@ -153,13 +158,13 @@ if __name__ == '__main__':
         "is_attention": False,
         "is_lstm": False,
         "is_cnn": False,
-        "train_file_url": "./o_data/train.json",
-        "test_file_url": "./o_data/train.json",
+        "train_file_url": "../ccks_3_nolabel_data//train_base.json",
+        "test_file_url": "../ccks_3_nolabel_data//trans_train.json",
         "dev_file_url": "./o_data/train.json",
         "job_name": "ner",
         "model_save_path": "./output/model",
-        "model_decode_fc": ["softmax", "crf", "span"][0],
-        "loss_type": ['lsr', 'focal', 'ce', 'bce', 'bce_with_log'][0],
+        "model_decode_fc": ["softmax", "crf", "span"][1],
+        "loss_type": ['lsr', 'focal', 'ce', 'bce', 'bce_with_log'][3],
         "do_adv": False,
         "adv_epsilon": 1.0,
         "adv_name": 'word_embeddings',
@@ -201,7 +206,8 @@ if __name__ == '__main__':
 
     config_params['model_type'] = model_type[0]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
-    config_params['model_save_path'] = "./output/model_{}_{}".format(config_params['model_type'], config_params['model_decode_fc'])
+    config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
+    config_params['model_save_path'] = "./output_2_1/model_{}_{}".format(config_params['model_type'], config_params['model_decode_fc'])
     lc = LanguageModelNerTrain(config_params)
     lc.data_preprocess()
     lc.fit()

@@ -397,6 +397,9 @@ class NerDataPreprocess:
 
     def trans_label(self, d):
         text = list(d['text'])
+        for i in range(len(text)):
+            if text[i] == '':
+                text[i] = '#'  # '[UNK]'
         labels = ["O"]*len(text)
         for e in d['entities']:
             for i in range(e['start_pos'], e['end_pos']):
@@ -407,6 +410,9 @@ class NerDataPreprocess:
 
     def trans_span_label(self, d):
         text = list(d['text'])
+        for i in range(len(text)):
+            if text[i] == '':
+                text[i] = '#'  # '[UNK]'
         labels = []
         for e in d['entities']:
             labels.append([e['entity_type'], e['start_pos'], e['end_pos']-1])
@@ -461,6 +467,44 @@ class NerDataPreprocess:
         labels = sorted(list(labels))
         return data, labels
 
+    def get_data_2(self, file):
+        """
+        {"id": "ecb7d40130299305dd53bc9096449919",
+         "content": "所以,鉴于三人特殊的亲戚关系,业内认为,金马股份收购众泰汽车的做法,更像是一场自导自演、自我抬高身价的家族游戏。",
+
+         "events": [
+             {"type": "收购",
+			 "mentions": [{"word": "金马股份", "span": [20, 24], "role": "sub-org"},
+			              {"word": "收购", "span": [24, 26], "role": "trigger"},
+						  {"word": "众泰汽车", "span": [26, 30], "role": "obj-org"}]}]}
+        :param file:
+        :return:   [{"text": , "entities": []}, {}, ], []
+        """
+        data = []
+        labels = set()
+        with open(file, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = eval(line)
+                entities = []
+
+                for e1 in line['events']:
+                    for e in e1['mentions']:
+                        entities.append({
+                            "entity_type": e['role'],
+                            "start_pos": e['span'][0],
+                            "end_pos": e['span'][1],
+                            "word": e['word']
+                        })
+
+                        labels.add(e['role'])
+
+                data.append({
+                    "text": line['content'],
+                    "entities": entities
+                })
+
+        return data, list(labels)
+
     def get_data_1(self, data):
         """
         :param data:
@@ -494,18 +538,18 @@ class NerDataPreprocess:
 
         pad_token_label_id = self.config.ignore_index
 
-        features = self.convert_examples_to_features(examples=examples,
-                                                     tokenizer=self.tokenizer,
-                                                     label_list=label_list,
-                                                     max_seq_length=self.config.max_seq_len,
-                                                     cls_token_at_end=bool(self.config.model_type in ["xlnet"]),
-                                                     pad_on_left=bool(self.config.model_type in ['xlnet']),
-                                                     cls_token=self.tokenizer.cls_token,
-                                                     cls_token_segment_id=2 if self.config.model_type in ["xlnet"] else 0,
-                                                     sep_token=self.tokenizer.sep_token,
-                                                     # pad on the left for xlnet
-                                                     pad_token=self.tokenizer.convert_tokens_to_ids([self.tokenizer.pad_token])[0],
-                                                     pad_token_segment_id=4 if self.config.model_type in ['xlnet'] else 0,)
+        features = self.convert_examples_to_features_span(examples=examples,
+                                                          tokenizer=self.tokenizer,
+                                                          label_list=label_list,
+                                                          max_seq_length=self.config.max_seq_len,
+                                                          cls_token_at_end=bool(self.config.model_type in ["xlnet"]),
+                                                          pad_on_left=bool(self.config.model_type in ['xlnet']),
+                                                          cls_token=self.tokenizer.cls_token,
+                                                          cls_token_segment_id=2 if self.config.model_type in ["xlnet"] else 0,
+                                                          sep_token=self.tokenizer.sep_token,
+                                                          # pad on the left for xlnet
+                                                          pad_token=self.tokenizer.convert_tokens_to_ids([self.tokenizer.pad_token])[0],
+                                                          pad_token_segment_id=4 if self.config.model_type in ['xlnet'] else 0,)
 
         if set_type in ['test', 'dev']:
             return features, examples

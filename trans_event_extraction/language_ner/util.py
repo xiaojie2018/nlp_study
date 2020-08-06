@@ -32,7 +32,6 @@ def transfer_label_vec_to_multilabel(label_vec_df):
     return total_labels
 
 
-
 def calculate_f1_p_r(pred_count, std_count, match_count):
     precision = match_count/pred_count if pred_count else 0
     recall = match_count/std_count if std_count else 0

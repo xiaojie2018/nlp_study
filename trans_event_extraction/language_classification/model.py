@@ -58,6 +58,26 @@ class FCLayer(nn.Module):
         return x1
 
 
+class FCLayer_softmax(nn.Module):
+    def __init__(self, input_dim, output_dim, dropout_rate=0.9, use_activation=True):
+        super(FCLayer_softmax, self).__init__()
+        self.use_activation = use_activation
+        self.dropout = nn.Dropout(dropout_rate)
+        self.linear = nn.Linear(input_dim, output_dim)
+        self.tanh = nn.Tanh()
+        self.softmax = nn.Softmax(1)
+        # self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.dropout(x)
+        if self.use_activation:
+            x = self.tanh(x)
+        x1 = self.linear(x)
+        y = self.softmax(x1)
+        # y = self.sigmoid(x1)
+        return y
+
+
 class FCLayer_sigmoid(nn.Module):
     def __init__(self, input_dim, output_dim, dropout_rate=0.9, use_activation=True):
         super(FCLayer_sigmoid, self).__init__()
@@ -169,7 +189,7 @@ class ClassificationModel(BertPreTrainedModel):
         if self.args.is_muti_label:
             self.fc = FCLayer_sigmoid(bert_config.hidden_size, self.label_num)
         else:
-            self.fc = FCLayer(bert_config.hidden_size, self.label_num)
+            self.fc = FCLayer_softmax(bert_config.hidden_size, self.label_num)
         self.fc2 = FCLayer(bert_config.hidden_size * 2, self.label_num)
         # self.fc1 = FCLayer(bert_config.hidden_size, self.label_num)
         # self.fc2 = FCLayer(bert_config.hidden_size, self.label_num)

@@ -8,7 +8,7 @@ import json
 from utils import ClassificationDataPreprocess
 from argparse import Namespace
 from trainer import Trainer
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 class LanguageModelClassificationPredict(ClassificationDataPreprocess):
@@ -20,6 +20,7 @@ class LanguageModelClassificationPredict(ClassificationDataPreprocess):
         self.label_id = self.config.label_id
         self.label_0 = self.config.labels[0]
         self.is_muti_label = self.config.is_muti_label
+        self.config.model_dir = config_file_name
         self.trainer = Trainer(self.config)
         self.trainer.load_model()
 
@@ -46,8 +47,8 @@ class LanguageModelClassificationPredict(ClassificationDataPreprocess):
                 s1[k] = round(v, 6)
             result.append(s1)
 
-        # return result
-        return [[x, y] for x, y in zip(texts, intent_preds_list)]
+        return result
+        # return [[x, y] for x, y in zip(texts, intent_preds_list)]
 
 
 def read_test_data(file):
@@ -60,23 +61,11 @@ def read_test_data(file):
 
 
 if __name__ == '__main__':
-    model_type = ["bert", "ernie", "albert", "roberta", "bert_www", "xlnet_base", "xlnet_mid",
-                  'electra_base_discriminator', 'electra_small_discriminator']
 
-    file = "./output/model_{}".format(model_type[6])
-    # file = '/output/model'
-    texts = ["上半身肥胖型", "运动传导束受累", "手术后反流性胃炎", "口腔黏膜嗜酸性溃疡"]
+    file = "/home/hemei/xjie/trans_event_extraction/language_classification/output_1/model_ernie"
+    texts = ["上述股权已于2012年9月25日办理了股权质押登记手续,股权质押期限自股权质押登记之日起至质权人办理解除质押登记为止。",
+             "和房屋大部分系2015年度重大资产重组并收购广汇有限股权时进入上市公司广"]
     lcp = LanguageModelClassificationPredict(file)
     res = lcp.predict(texts)
     print(res)
-
-    test_file_path = "/home/hemei/xjie/bert_classification/ccks_7_1_competition_data/验证集"
-    texts = read_test_data(os.path.join(test_file_path, "entity_validation.txt"))
-    result = lcp.predict(texts)
-
-    output_file = './output_data/result_{}_12.txt'.format(model_type[6])
-    f = open(output_file, 'w', encoding='utf-8')
-    for s in result:
-        f.write('\t'.join(s) + '\n')
-    f.close()
 

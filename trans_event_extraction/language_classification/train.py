@@ -33,7 +33,9 @@ class LanguageModelClassificationTrain(ClassificationDataPreprocess):
             train_data = train_data + train_data1
             test_data, labels2 = train_data, labels1
             dev_data, labels3 = train_data, labels1
-        train_data, labels1 = self.get_event_data_json(self.config.train_file_url)
+        # train_data, labels1 = self.get_event_data_json(self.config.train_file_url)
+        train_data, labels1 = self.get_event_data_json(self.config.test_file_url)
+        train_data = train_data
         test_data = train_data
         dev_data = train_data
         labels2 = labels1
@@ -75,6 +77,16 @@ class LanguageModelClassificationTrain(ClassificationDataPreprocess):
         self.config.model_save_path = self.model_save_path
         self.config.model_dir = self.model_save_path
 
+        vocab_file = os.path.join(self.config.pretrained_model_path, "vocab.txt")
+        out_vocab_file = os.path.join(self.model_save_path, "vocab.txt")
+
+        f_w = open(out_vocab_file, 'w')
+        with open(vocab_file, 'r') as f_r:
+            for line in f_r:
+                f_w.write(line)
+        f_w.close()
+        f_r.close()
+
         with codecs.open(os.path.join(self.model_save_path, '{}_config.json'.format(self.config.task_type)), 'w', encoding='utf-8') as fd:
             json.dump(vars(self.config), fd, indent=4, ensure_ascii=False)
 
@@ -105,7 +117,7 @@ if __name__ == '__main__':
         "eval_batch_size": 16,
         "max_seq_len": 200,
         "learning_rate": 5e-5,
-        "num_train_epochs": 20,
+        "num_train_epochs": 10,
         "weight_decay": 0.0,
         "gradient_accumulation_steps": 1,
         "adam_epsilon": 1e-8,
@@ -123,12 +135,12 @@ if __name__ == '__main__':
         "is_lstm": False,
         "is_cnn": False,
         "train_file_url": "../ccks_3_nolabel_data//train_base.json",
-        "test_file_url": "./o_data/entity_type.txt",
+        "test_file_url": "../ccks_3_nolabel_data//trans_train.json",
         "dev_file_url": "./o_data/entity_type.txt",
         "unsup_file_url": "./o_data/entity_validation.txt",
         "job_name": "dialog_intent_classification",
         "model_save_path": "./output/model",
-        "is_muti_label": True,
+        "is_muti_label": False,
         "is_uda_model": False,
         "unsup_ratio": 3,
         "uda_coeff": 1,
@@ -169,8 +181,9 @@ if __name__ == '__main__':
         # "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
     }
 
-    config_params['model_type'] = model_type[0]
+    config_params['model_type'] = model_type[1]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
+    config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
     config_params['model_save_path'] = "./output/model_{}".format(config_params['model_type'])
     lc = LanguageModelClassificationTrain(config_params)
     lc.data_preprocess()
