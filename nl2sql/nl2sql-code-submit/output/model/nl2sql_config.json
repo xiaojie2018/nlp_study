@@ -1,0 +1,9 @@
+{
+  "gpu": true,
+  "batch_size": 12,
+  "epoch": 2,
+  "data_dir": "/home/hemei/xjie/nl2sql/o_data",
+  "bert_model_dir": "/home/hemei/xjie/bert_models/bert-base-chinese",
+  "model_save_path": "/home/hemei/xjie/nl2sql/nl2sql-code-submit/output/model/model_0807.pt",
+  "restore_model_path": "/home/hemei/xjie/nl2sql/nl2sql-code-submit/output/model/model_0807.pt"
+}

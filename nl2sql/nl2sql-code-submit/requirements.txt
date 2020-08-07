@@ -1,0 +1,4 @@
+fuzzywuzzy==0.17.0
+pytorch-pretrained-bert==0.6.2
+tqdm==4.24.0
+records
