@@ -201,7 +201,7 @@ class EntityClassificationDataPreprocess:
 
                             for m1 in men1:
                                 mention1 = {
-                                    "entity_type": "neg_text",
+                                    "entity_type": "neg_text11",
                                     "start_pos": m1['span'][0],
                                     "end_pos": m1['span'][1],
                                     "word": m1['word']
@@ -210,11 +210,11 @@ class EntityClassificationDataPreprocess:
                                     "text": text,
                                     "type": b1['type'],
                                     "entity": mention1,
-                                    "label": "neg_text"
+                                    "label": "neg_text11"
                                 })
                             for m2 in men2:
                                 mention1 = {
-                                    "entity_type": "neg_text",
+                                    "entity_type": "neg_text11",
                                     "start_pos": m2['span'][0],
                                     "end_pos": m2['span'][1],
                                     "word": m2['word']
@@ -223,7 +223,7 @@ class EntityClassificationDataPreprocess:
                                     "text": text,
                                     "type": a1['type'],
                                     "entity": mention1,
-                                    "label": "neg_text"
+                                    "label": "neg_text11"
                                 })
 
         return data, sorted(list(labels))
@@ -252,7 +252,20 @@ class EntityClassificationDataPreprocess:
 
             # Tokenize word by word
 
-            tokens = tokenizer.tokenize(example.text)
+            text = example.text[:example.entity['start_pos']] + "<e1>" + example.text[example.entity['start_pos']: example.entity['end_pos']] + "</e1>" + example.text[example.entity['end_pos']:]
+
+            tokens = tokenizer.tokenize(text)
+
+            e11_p = tokens.index("<e1>")
+            e12_p = tokens.index("</e1>")
+
+            tokens[e11_p] = "$"
+            tokens[e12_p] = "$"
+
+            e11_p += 1
+            e12_p += 1
+
+            # tokens = tokenizer.tokenize(example.text)
             token_type_ids = [sequence_a_segment_id] * len(tokens)
 
             # Add [CLS] token
@@ -269,6 +282,19 @@ class EntityClassificationDataPreprocess:
             # tokens are attended to.
             attention_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
 
+            # e1 mask, e2 mask
+            e1_mask = [0] * len(attention_mask)
+
+            for i in range(e11_p, e12_p+1):
+                e1_mask[i] = 1
+
+            # 去掉  $ $
+
+            input_ids = input_ids[:e11_p] + input_ids[e11_p+1: e12_p] + input_ids[e12_p+1:]
+            token_type_ids = token_type_ids[:e11_p] + token_type_ids[e11_p + 1: e12_p] + token_type_ids[e12_p + 1:]
+            attention_mask = attention_mask[:e11_p] + attention_mask[e11_p + 1: e12_p] + attention_mask[e12_p + 1:]
+            e1_mask = e1_mask[:e11_p] + e1_mask[e11_p + 1: e12_p] + e1_mask[e12_p + 1:]
+
             # Zero-pad up to the sequence length.
             padding_length = max_seq_len - len(input_ids)
 
@@ -277,23 +303,22 @@ class EntityClassificationDataPreprocess:
                 input_ids = input_ids + ([pad_token_id] * padding_length)
                 attention_mask = attention_mask + ([0 if mask_padding_with_zero else 1] * padding_length)
                 token_type_ids = token_type_ids + ([pad_token_segment_id] * padding_length)
+                e1_mask = e1_mask + ([0 if mask_padding_with_zero else 1] * padding_length)
 
             elif padding_length < 0:
                 input_ids = input_ids[:max_seq_len-1] + [input_ids[-1]]
                 attention_mask = attention_mask[:max_seq_len-1] + [attention_mask[-1]]
                 token_type_ids = token_type_ids[:max_seq_len-1] + [token_type_ids[-1]]
-
-            # e1 mask, e2 mask
-            e1_mask = [0] * len(attention_mask)
-
-            for i in range(example.entity['start_pos'], example.entity['end_pos']):
-                e1_mask[i] = 1
+                e1_mask = e1_mask[:max_seq_len - 1] + [e1_mask[-1]]
 
             assert len(input_ids) == max_seq_len, "Error with input length {} vs {}".format(len(input_ids), max_seq_len)
             assert len(attention_mask) == max_seq_len, "Error with attention mask length {} vs {}".format(
                 len(attention_mask), max_seq_len)
             assert len(token_type_ids) == max_seq_len, "Error with token type length {} vs {}".format(
                 len(token_type_ids), max_seq_len)
+
+            assert len(e1_mask) == max_seq_len, "Error with entity mask length {} vs {}".format(
+                len(e1_mask), max_seq_len)
 
             label_id = example.label
 

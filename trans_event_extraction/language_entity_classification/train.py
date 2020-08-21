@@ -11,7 +11,7 @@ import logging
 import os
 import json
 import codecs
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 init_logger()
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class LanguageModelEntityClassificationTrain(EntityClassificationDataPreprocess)
         # test_data, labels2 = self.get_data_json(self.config.test_file_url)
         # dev_data, labels3 = self.get_data_json(self.config.dev_file_url)
 
-        labels = sorted(list(set(labels1 + labels2 + labels3)))
+        labels = sorted(list(set(labels1 + labels2 + labels3)) + ["neg_text11"])
 
         self.labels = labels
         self.config.num_classes = len(labels)
@@ -119,7 +119,7 @@ if __name__ == '__main__':
         "seed": 42,
         "train_batch_size": 32,
         "eval_batch_size": 32,
-        "max_seq_len": 128,
+        "max_seq_len": 200,
         "learning_rate": 5e-5,
         "num_train_epochs": 16,
         "weight_decay": 0.0,
@@ -180,7 +180,16 @@ if __name__ == '__main__':
     config_params['model_type'] = model_type[1]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
     config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
-    config_params['model_save_path'] = "./output/model_{}".format(config_params['model_type'])
+    config_params['model_save_path'] = "./output_2/model_{}".format(config_params['model_type'])
     lc = LanguageModelEntityClassificationTrain(config_params)
     lc.data_preprocess()
     lc.fit()
+
+
+    {14526: "责问客服信息", 14532: "投诉或不满", 11071: "投诉或不满", 11069: "客户端录音", 14527: "客户端录音",
+     14528: "代表银行-最终答复", 14530: "询问信访和上级信息", 14531: "制度规定依据", 11070: "制度规定依据",
+     14533: "询问投诉监督电话", 11072: "询问投诉监督电话",
+     14534: "威胁安全", 13535: "媒体曝光", 14536: "总行高管投诉", 14537: "银行监管机构投诉", 11073: "银行监管机构投诉",
+     14538: "群众渠道投诉", 11075: "起诉建行", 14540: "起诉建行", 11074: "道歉赔偿", 14539: "道歉赔偿", 14541: "投诉倾向-其他",
+     14542: "明确投诉-其他", 14529: "升级倾向"}
+
