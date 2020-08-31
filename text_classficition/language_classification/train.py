@@ -11,7 +11,7 @@ import logging
 import os
 import json
 import codecs
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 init_logger()
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,9 @@ class LanguageModelClassificationTrain(ClassificationDataPreprocess):
     def data_preprocess(self):
         if self.config.train_file_url.endswith('txt'):
             train_data, labels1 = self._get_data_txt(self.config.train_file_url)
+            # train_data1, labels11 = self._get_data_txt('./output_data/result_ernie_2.txt')
+            train_data1 = []
+            train_data = train_data + train_data1
             test_data, labels2 = train_data, labels1
             dev_data, labels3 = train_data, labels1
         # train_data, labels1 = self.get_data_json(self.config.train_file_url)
@@ -94,8 +97,8 @@ if __name__ == '__main__':
         "task_type": "classification",
         "model_name_or_path": "E:\\nlp_tools\\bert_models\\bert-base-chinese",
         "seed": 1234,
-        "train_batch_size": 18,
-        "eval_batch_size": 128,
+        "train_batch_size": 16,
+        "eval_batch_size": 64,
         "max_seq_len": 34,
         "learning_rate": 5e-5,
         "num_train_epochs": 10,
@@ -115,7 +118,7 @@ if __name__ == '__main__':
         "is_attention": False,
         "is_lstm": False,
         "is_cnn": False,
-        "train_file_url": "./o_data/entity_type.txt",
+        "train_file_url": "./o_data/ronghe_train_3.txt",
         "test_file_url": "./o_data/entity_type.txt",
         "dev_file_url": "./o_data/entity_type.txt",
         "unsup_file_url": "./o_data/entity_validation.txt",
@@ -148,8 +151,8 @@ if __name__ == '__main__':
     # }
     lag_path = '/home/hemei/xjie/bert_models'
     pre_model_path = {
-        "bert": f"{lag_path}/bert-base-chinese",
-        "ernie": f"{lag_path}/ERNIE",
+        "bert": f"{lag_path}/bert-base-chinese",  # jindong  bert-base-chinese
+        "ernie": f"{lag_path}/ERNIE_stable-1.0.1-pytorch",  # ERNIE_stable-1.0.1-pytorch   ERNIE  ERNIE_1.0_max-len-512-pytorch
         "albert": f"{lag_path}/albert_base_v1",
         "roberta": f"{lag_path}/chinese_roberta_wwm_ext_pytorch",
         "bert_www": f"{lag_path}/chinese_wwm_pytorch",
@@ -161,7 +164,7 @@ if __name__ == '__main__':
         # "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
     }
 
-    config_params['model_type'] = model_type[1]
+    config_params['model_type'] = model_type[0]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
     config_params['model_save_path'] = "./output/model_{}".format(config_params['model_type'])
     lc = LanguageModelClassificationTrain(config_params)

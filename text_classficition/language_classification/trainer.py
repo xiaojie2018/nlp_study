@@ -7,7 +7,7 @@ import os
 import logging
 from tqdm import tqdm, trange
 from utils import set_seed, compute_metrics
-from config import MODEL_CLASSES, MODEL_TASK
+# from config import MODEL_CLASSES, MODEL_TASK
 from model import ClassificationModel
 import numpy as np
 import torch
@@ -26,7 +26,8 @@ class Trainer:
         self.test_dataset = test_dataset
 
         # self.config_class, _, _ = MODEL_CLASSES[args.model_type]
-        self.model_class = MODEL_TASK[args.task_type]
+        # self.model_class = MODEL_TASK[args.task_type]
+        self.model_class = ClassificationModel
         # self.config = self.config_class.from_pretrained(args.model_name_or_path)
         self.model = self.model_class(args.model_dir, args)
 
@@ -39,7 +40,10 @@ class Trainer:
 
     def train(self):
         train_sampler = RandomSampler(self.train_dataset)
-        train_dataloader = DataLoader(self.train_dataset, sampler=train_sampler, batch_size=self.args.train_batch_size*(1+2*self.unsup_ratio))
+        if self.args.is_uda_model:
+            train_dataloader = DataLoader(self.train_dataset, sampler=train_sampler, batch_size=self.args.train_batch_size*(1+2*self.unsup_ratio))
+        else:
+            train_dataloader = DataLoader(self.train_dataset, sampler=train_sampler, batch_size=self.args.train_batch_size)
 
         if self.args.max_steps > 0:
             t_total = self.args.max_steps

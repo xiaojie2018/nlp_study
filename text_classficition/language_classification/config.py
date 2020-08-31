@@ -31,8 +31,8 @@ MODEL_PATH_MAP = {
 }
 
 
-from model import ClassificationModel
-
-MODEL_TASK = {
-    "classification": ClassificationModel
-}
+# from model import ClassificationModel
+#
+# MODEL_TASK = {
+#     "classification": ClassificationModel
+# }

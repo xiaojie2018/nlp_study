@@ -8,7 +8,7 @@ import json
 from utils import ClassificationDataPreprocess
 from argparse import Namespace
 from trainer import Trainer
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 class LanguageModelClassificationPredict(ClassificationDataPreprocess):
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     model_type = ["bert", "ernie", "albert", "roberta", "bert_www", "xlnet_base", "xlnet_mid",
                   'electra_base_discriminator', 'electra_small_discriminator']
 
-    file = "./output/model_{}".format(model_type[1])
+    file = "./output/model_{}".format(model_type[6])
     # file = '/output/model'
     texts = ["上半身肥胖型", "运动传导束受累", "手术后反流性胃炎", "口腔黏膜嗜酸性溃疡"]
     lcp = LanguageModelClassificationPredict(file)
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     texts = read_test_data(os.path.join(test_file_path, "entity_validation.txt"))
     result = lcp.predict(texts)
 
-    output_file = './output_data/result_{}_3.txt'.format(model_type[1])
+    output_file = './output_data/result_{}_12.txt'.format(model_type[6])
     f = open(output_file, 'w', encoding='utf-8')
     for s in result:
         f.write('\t'.join(s) + '\n')

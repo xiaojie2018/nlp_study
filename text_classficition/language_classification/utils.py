@@ -310,6 +310,7 @@ class ClassificationDataPreprocess:
             if (i+1) % train_batch_size == 0 and len(e) > 0:
                 start_pos = ind*unsup_batch_size
                 end_pos = (ind+1)*unsup_batch_size
+                ind += 1
                 if start_pos > len(unsup_examples) or end_pos > len(unsup_examples):
                     ind = 0
                     start_pos = ind * unsup_batch_size
@@ -322,7 +323,7 @@ class ClassificationDataPreprocess:
                 o_examples.append(e)
                 e = []
         if len(e) > 0:
-            end_pos = len(e)
+            end_pos = len(e)*unsup_ratio
             e1 = unsup_examples[:end_pos]
             e2 = word_level_augment(e1)
             e += e1
