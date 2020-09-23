@@ -554,7 +554,7 @@ class EventExtractionDataPreprocess(object):
         doc_token_segment_mat = []
 
         for sent_idx, sent_text in enumerate(example.sentences):
-            if sent_idx > self.max_sent_num:
+            if sent_idx >= self.max_sent_num:
                 break
 
             srange_mspan_mtype_tuples = example.sent_idx2srange_mspan_mtype_tuples.get(sent_idx, [])
