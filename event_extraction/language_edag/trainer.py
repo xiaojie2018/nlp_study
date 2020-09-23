@@ -544,6 +544,11 @@ class Trainer:
             )
 
             # 打印
+            for s in total_eval_res[:-1]:
+                logger.info(s[0])
+                for s1 in s:
+                    logger.info(s1)
+            logger.info(total_eval_res[-1])
 
             return total_event_decode_results, total_eval_res
 

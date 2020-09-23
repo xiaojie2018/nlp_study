@@ -190,10 +190,12 @@ def append_all_spans(last_token_path_list, field_idx, field_idx2span_token_tup2d
     return new_token_path_list
 
 
-class Doc2EDAGModel(nn.Module):
+class Doc2EDAGModel(BertPreTrainedModel):
 
     def __init__(self, args):
-        super(Doc2EDAGModel, self).__init__()
+        self.config_class, _, config_model = MODEL_CLASSES[args.pred_model_type]
+        bert_config = self.config_class.from_pretrained(args.model_name_or_path)
+        super(Doc2EDAGModel, self).__init__(bert_config)
 
         self.args = args
         self.event_type_fields_pairs = args.event_type_fields_pairs
