@@ -364,43 +364,51 @@ class Trainer:
 
                     if self.args.logging_steps > 0 and global_step % self.args.logging_steps == 0:
                         _, eval_results = self.evaluate('dev')
+                        eval_info = {}
+                        for xxx in eval_results:
 
-                        eval_info = eval_results[-1]
-                        witer.add_scalar("Test/MacroPrecision", eval_info.get("MacroPrecision", 0), global_step)
-                        witer.add_scalar("Test/MacroRecall", eval_info.get("MacroRecall", 0), global_step)
-                        witer.add_scalar("Test/MacroF1", eval_info.get("MacroF1", 0), global_step)
-                        witer.add_scalar("Test/MicroPrecision", eval_info.get("MicroPrecision", 0), global_step)
-                        witer.add_scalar("Test/MicroRecall", eval_info.get("MicroRecall", 0), global_step)
-                        witer.add_scalar("Test/MicroF1", eval_info.get("MicroF1", 0), global_step)
+                            if isinstance(xxx, tuple):
+                                event_x, entity_x = xxx[0], xxx[1]
 
-                        for (event_x, entity_x) in eval_results[:-1]:
-                            witer.add_scalar("Test/{}/MacroPrecision".format(event_x.get("EventType")),
-                                             event_x.get("MacroPrecision", 0), global_step)
-                            witer.add_scalar("Test/{}/MacroRecall".format(event_x.get("EventType")),
-                                             event_x.get("MacroRecall", 0), global_step)
-                            witer.add_scalar("Test/{}/MacroF1".format(event_x.get("EventType")),
-                                             event_x.get("MacroF1", 0), global_step)
-                            witer.add_scalar("Test/{}/MicroPrecision".format(event_x.get("EventType")),
-                                             event_x.get("MicroPrecision", 0), global_step)
-                            witer.add_scalar("Test/{}/MicroRecall".format(event_x.get("EventType")),
-                                             event_x.get("MicroRecall", 0), global_step)
-                            witer.add_scalar("Test/{}/MicroF1".format(event_x.get("EventType")),
-                                             event_x.get("MicroF1", 0), global_step)
+                                witer.add_scalar("Test/{}/MacroPrecision".format(event_x.get("EventType")),
+                                                 event_x.get("MacroPrecision", 0), global_step)
+                                witer.add_scalar("Test/{}/MacroRecall".format(event_x.get("EventType")),
+                                                 event_x.get("MacroRecall", 0), global_step)
+                                witer.add_scalar("Test/{}/MacroF1".format(event_x.get("EventType")),
+                                                 event_x.get("MacroF1", 0), global_step)
+                                witer.add_scalar("Test/{}/MicroPrecision".format(event_x.get("EventType")),
+                                                 event_x.get("MicroPrecision", 0), global_step)
+                                witer.add_scalar("Test/{}/MicroRecall".format(event_x.get("EventType")),
+                                                 event_x.get("MicroRecall", 0), global_step)
+                                witer.add_scalar("Test/{}/MicroF1".format(event_x.get("EventType")),
+                                                 event_x.get("MicroF1", 0), global_step)
 
-                            for x1 in entity_x:
-                                witer.add_scalar(
-                                    "Test/{}/{}/Precision".format(event_x.get("EventType"), x1.get("RoleType")),
-                                    x1.get("Precision", 0), global_step)
-                                witer.add_scalar(
-                                    "Test/{}/{}/Recall".format(event_x.get("EventType"), x1.get("RoleType")),
-                                    x1.get("Recall", 0), global_step)
-                                witer.add_scalar(
-                                    "Test/{}/{}/F1".format(event_x.get("EventType"), x1.get("RoleType")),
-                                    x1.get("F1", 0), global_step)
+                                for x1 in entity_x:
+                                    witer.add_scalar(
+                                        "Test/{}/{}/Precision".format(event_x.get("EventType"), x1.get("RoleType")),
+                                        x1.get("Precision", 0), global_step)
+                                    witer.add_scalar(
+                                        "Test/{}/{}/Recall".format(event_x.get("EventType"), x1.get("RoleType")),
+                                        x1.get("Recall", 0), global_step)
+                                    witer.add_scalar(
+                                        "Test/{}/{}/F1".format(event_x.get("EventType"), x1.get("RoleType")),
+                                        x1.get("F1", 0), global_step)
+
+                            elif isinstance(xxx, dict):
+                                eval_info = xxx
+                                witer.add_scalar("Test/MacroPrecision", eval_info.get("MacroPrecision", 0), global_step)
+                                witer.add_scalar("Test/MacroRecall", eval_info.get("MacroRecall", 0), global_step)
+                                witer.add_scalar("Test/MacroF1", eval_info.get("MacroF1", 0), global_step)
+                                witer.add_scalar("Test/MicroPrecision", eval_info.get("MicroPrecision", 0), global_step)
+                                witer.add_scalar("Test/MicroRecall", eval_info.get("MicroRecall", 0), global_step)
+                                witer.add_scalar("Test/MicroF1", eval_info.get("MicroF1", 0), global_step)
+
+                            else:
+                                print("error")
 
                         if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
-                            if eval_results[-1].get("MicroF1", 0) > best_mean_precision:
-                                best_mean_precision = eval_results[-1].get("MicroF1", 0)
+                            if eval_info.get("MicroF1", 0) > best_mean_precision:
+                                best_mean_precision = eval_info.get("MicroF1", 0)
                                 self.save_model()
 
                 if 0 < self.args.max_steps < global_step:
@@ -411,43 +419,51 @@ class Trainer:
                 lr = scheduler.get_lr()[-1]
                 witer.add_scalar("Train/lr", lr, global_step)
 
-            eval_results = self.evaluate('dev')
+            _, eval_results = self.evaluate('dev')
+            eval_info = {}
+            for xxx in eval_results:
 
-            eval_info = eval_results[-1]
-            witer.add_scalar("Test/MacroPrecision", eval_info.get("MacroPrecision", 0), global_step)
-            witer.add_scalar("Test/MacroRecall", eval_info.get("MacroRecall", 0), global_step)
-            witer.add_scalar("Test/MacroF1", eval_info.get("MacroF1", 0), global_step)
-            witer.add_scalar("Test/MicroPrecision", eval_info.get("MicroPrecision", 0), global_step)
-            witer.add_scalar("Test/MicroRecall", eval_info.get("MicroRecall", 0), global_step)
-            witer.add_scalar("Test/MicroF1", eval_info.get("MicroF1", 0), global_step)
+                if isinstance(xxx, tuple):
+                    event_x, entity_x = xxx[0], xxx[1]
 
-            for (event_x, entity_x) in eval_results[:-1]:
-                witer.add_scalar("Test/{}/MacroPrecision".format(event_x.get("EventType")),
-                                 event_x.get("MacroPrecision", 0), global_step)
-                witer.add_scalar("Test/{}/MacroRecall".format(event_x.get("EventType")),
-                                 event_x.get("MacroRecall", 0), global_step)
-                witer.add_scalar("Test/{}/MacroF1".format(event_x.get("EventType")),
-                                 event_x.get("MacroF1", 0), global_step)
-                witer.add_scalar("Test/{}/MicroPrecision".format(event_x.get("EventType")),
-                                 event_x.get("MicroPrecision", 0), global_step)
-                witer.add_scalar("Test/{}/MicroRecall".format(event_x.get("EventType")),
-                                 event_x.get("MicroRecall", 0), global_step)
-                witer.add_scalar("Test/{}/MicroF1".format(event_x.get("EventType")),
-                                 event_x.get("MicroF1", 0), global_step)
+                    witer.add_scalar("Test/{}/MacroPrecision".format(event_x.get("EventType")),
+                                     event_x.get("MacroPrecision", 0), global_step)
+                    witer.add_scalar("Test/{}/MacroRecall".format(event_x.get("EventType")),
+                                     event_x.get("MacroRecall", 0), global_step)
+                    witer.add_scalar("Test/{}/MacroF1".format(event_x.get("EventType")),
+                                     event_x.get("MacroF1", 0), global_step)
+                    witer.add_scalar("Test/{}/MicroPrecision".format(event_x.get("EventType")),
+                                     event_x.get("MicroPrecision", 0), global_step)
+                    witer.add_scalar("Test/{}/MicroRecall".format(event_x.get("EventType")),
+                                     event_x.get("MicroRecall", 0), global_step)
+                    witer.add_scalar("Test/{}/MicroF1".format(event_x.get("EventType")),
+                                     event_x.get("MicroF1", 0), global_step)
 
-                for x1 in entity_x:
-                    witer.add_scalar(
-                        "Test/{}/{}/Precision".format(event_x.get("EventType"), x1.get("RoleType")),
-                        x1.get("Precision", 0), global_step)
-                    witer.add_scalar(
-                        "Test/{}/{}/Recall".format(event_x.get("EventType"), x1.get("RoleType")),
-                        x1.get("Recall", 0), global_step)
-                    witer.add_scalar(
-                        "Test/{}/{}/F1".format(event_x.get("EventType"), x1.get("RoleType")),
-                        x1.get("F1", 0), global_step)
+                    for x1 in entity_x:
+                        witer.add_scalar(
+                            "Test/{}/{}/Precision".format(event_x.get("EventType"), x1.get("RoleType")),
+                            x1.get("Precision", 0), global_step)
+                        witer.add_scalar(
+                            "Test/{}/{}/Recall".format(event_x.get("EventType"), x1.get("RoleType")),
+                            x1.get("Recall", 0), global_step)
+                        witer.add_scalar(
+                            "Test/{}/{}/F1".format(event_x.get("EventType"), x1.get("RoleType")),
+                            x1.get("F1", 0), global_step)
 
-            if eval_results[-1].get("MicroF1", 0) > best_mean_precision:
-                best_mean_precision = eval_results[-1].get("MicroF1", 0)
+                elif isinstance(xxx, dict):
+                    eval_info = xxx
+                    witer.add_scalar("Test/MacroPrecision", eval_info.get("MacroPrecision", 0), global_step)
+                    witer.add_scalar("Test/MacroRecall", eval_info.get("MacroRecall", 0), global_step)
+                    witer.add_scalar("Test/MacroF1", eval_info.get("MacroF1", 0), global_step)
+                    witer.add_scalar("Test/MicroPrecision", eval_info.get("MicroPrecision", 0), global_step)
+                    witer.add_scalar("Test/MicroRecall", eval_info.get("MicroRecall", 0), global_step)
+                    witer.add_scalar("Test/MicroF1", eval_info.get("MicroF1", 0), global_step)
+
+                else:
+                    print("error")
+
+            if eval_info.get("MicroF1", 0) > best_mean_precision:
+                best_mean_precision = eval_info.get("MicroF1", 0)
                 self.save_model()
 
             if 0 < self.args.max_steps < global_step:
