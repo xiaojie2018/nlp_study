@@ -228,10 +228,10 @@ class Trainer:
                             witer.add_scalar(f"Test/{x}/recall", eval_results.get(x, {}).get("recall", 0), global_step)
                             witer.add_scalar(f"Test/{x}/f1", eval_results.get(x, {}).get("f1", 0), global_step)
 
-                    if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
-                        if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
-                            best_mean_precision = eval_results.get("total", {}).get("f1", 0)
-                        self.save_model()
+                        if self.args.save_steps > 0 and global_step % self.args.save_steps == 0:
+                            if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
+                                best_mean_precision = eval_results.get("total", {}).get("f1", 0)
+                                self.save_model()
 
                 if 0 < self.args.max_steps < global_step:
                     epoch_iterator.close()
@@ -254,7 +254,7 @@ class Trainer:
 
             if eval_results.get("total", {}).get("f1", 0) > best_mean_precision:
                 best_mean_precision = eval_results.get("total", {}).get("f1", 0)
-            self.save_model()
+                self.save_model()
 
             if 0 < self.args.max_steps < global_step:
                 train_iterator.close()
