@@ -16,6 +16,7 @@ import torch
 import random
 from tqdm import tqdm
 from torch.utils.data import TensorDataset
+import collections
 
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,17 @@ class InputSpanFeature(object):
         return json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n"
 
 
+def load_vocab(vocab_file):
+    """Loads a vocabulary file into a dictionary."""
+    vocab = collections.OrderedDict()
+    with open(vocab_file, "r", encoding="utf-8") as reader:
+        tokens = reader.readlines()
+    for index, token in enumerate(tokens):
+        token = token.rstrip("\n")
+        vocab[token] = index
+    return vocab
+
+
 def set_seed(args):
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -146,6 +158,7 @@ class NerDataPreprocess:
                     super().__init__(vocab_file=str(vocab_file), do_lower_case=do_lower_case)
                     self.vocab_file = str(vocab_file)
                     self.do_lower_case = do_lower_case
+                    self.vocab = load_vocab(vocab_file)
 
                 def tokenize(self, text):
                     _tokens = []
@@ -163,6 +176,7 @@ class NerDataPreprocess:
                     super().__init__(vocab_file=str(vocab_file), do_lower_case=do_lower_case)
                     self.vocab_file = str(vocab_file)
                     self.do_lower_case = do_lower_case
+                    self.vocab = load_vocab(vocab_file)
 
                 def tokenize(self, text):
                     _tokens = []
