@@ -201,6 +201,7 @@ if __name__ == '__main__':
 
     config_params['model_type'] = model_type[0]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
+    config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
     config_params['model_save_path'] = "./output/model_{}_{}".format(config_params['model_type'], config_params['model_decode_fc'])
     lc = LanguageModelNerTrain(config_params)
     lc.data_preprocess()
