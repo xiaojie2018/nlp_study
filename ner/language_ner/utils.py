@@ -409,7 +409,12 @@ class NerDataPreprocess:
         text = list(d['text'])
         labels = []
         for e in d['entities']:
-            labels.append([e['entity_type'], e['start_pos'], e['end_pos']-1])
+            if len(e['word']) == e['end_pos'] - e['start_pos']:
+
+                labels.append([e['entity_type'], e['start_pos'], e['end_pos']-1])
+            else:
+                labels.append([e['entity_type'], e['start_pos'], e['end_pos']])
+
         return text, labels
 
     def _get_data(self, data, label_list, label_id, set_type="train"):
@@ -490,24 +495,23 @@ class NerDataPreprocess:
 
             text, labels = self.trans_span_label(d)
 
-            examples.append(InputExample(guid=guid, text=text, label=labels))
+            examples.append(InputSpanExample(guid=guid, text=text, label=labels))
 
         pad_token_label_id = self.config.ignore_index
 
-        features = self.convert_examples_to_features(examples=examples,
-                                                     tokenizer=self.tokenizer,
-                                                     label_list=label_list,
-                                                     max_seq_length=self.config.max_seq_len,
-                                                     cls_token_at_end=bool(self.config.model_type in ["xlnet"]),
-                                                     pad_on_left=bool(self.config.model_type in ['xlnet']),
-                                                     cls_token=self.tokenizer.cls_token,
-                                                     cls_token_segment_id=2 if self.config.model_type in ["xlnet"] else 0,
-                                                     sep_token=self.tokenizer.sep_token,
-                                                     # pad on the left for xlnet
-                                                     pad_token=self.tokenizer.convert_tokens_to_ids([self.tokenizer.pad_token])[0],
-                                                     pad_token_segment_id=4 if self.config.model_type in ['xlnet'] else 0,)
+        features = self.convert_examples_to_features_span(examples=examples,
+                                                          tokenizer=self.tokenizer,
+                                                          label_list=label_list,
+                                                          max_seq_length=self.config.max_seq_len,
+                                                          cls_token_at_end=bool(self.config.model_type in ["xlnet"]),
+                                                          pad_on_left=bool(self.config.model_type in ['xlnet']),
+                                                          cls_token=self.tokenizer.cls_token,
+                                                          cls_token_segment_id=2 if self.config.model_type in ["xlnet"] else 0,
+                                                          sep_token=self.tokenizer.sep_token, # pad on the left for xlnet
+                                                          pad_token=self.tokenizer.convert_tokens_to_ids([self.tokenizer.pad_token])[0],
+                                                          pad_token_segment_id=4 if self.config.model_type in ['xlnet'] else 0,)
 
-        if set_type in ['test', 'dev']:
+        if set_type in ['test', 'dev', 'predict']:
             return features, examples
 
         # Convert to Tensors and build dataset

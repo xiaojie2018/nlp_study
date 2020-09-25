@@ -302,7 +302,7 @@ class LanguageSpanForNer(BertPreTrainedModel):
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, start_positions=None, end_positions=None):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
         sequence_output = outputs[0]
-        # sequence_output = self.dropout(sequence_output)
+        sequence_output = self.dropout(sequence_output)
 
         start_logits = self.start_fc(sequence_output)
         if start_positions is not None and self.training:

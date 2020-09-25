@@ -11,7 +11,7 @@ import logging
 import os
 import json
 import codecs
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 init_logger()
 logger = logging.getLogger(__name__)
 
@@ -133,9 +133,9 @@ if __name__ == '__main__':
         "seed": 42,
         "train_batch_size": 32,
         "eval_batch_size": 32,
-        "max_seq_len": 80,
+        "max_seq_len": 128,
         "learning_rate": 5e-5,
-        "num_train_epochs": 5,
+        "num_train_epochs": 50,
         "weight_decay": 0.01,
         "gradient_accumulation_steps": 1,
         "adam_epsilon": 1e-8,
@@ -143,9 +143,9 @@ if __name__ == '__main__':
         "max_steps": -1,
         "warmup_steps": 0,
         "warmup_proportion": 0.1,
-        "dropout_rate": 0.5,
-        "logging_steps": 500,
-        "save_steps": 500,
+        "dropout_rate": 0.1,
+        "logging_steps": 200,
+        "save_steps": 200,
         "no_cuda": False,
         "ignore_index": 0,
         "do_train": True,
@@ -153,19 +153,19 @@ if __name__ == '__main__':
         "is_attention": False,
         "is_lstm": False,
         "is_cnn": False,
-        "train_file_url": "./o_data/train.json",
-        "test_file_url": "./o_data/train.json",
-        "dev_file_url": "./o_data/train.json",
+        "train_file_url": "./ner_ccks_chip_2020/train.json",
+        "test_file_url": "./ner_ccks_chip_2020/dev.json",
+        "dev_file_url": "./ner_ccks_chip_2020/dev.json",
         "job_name": "ner",
         "model_save_path": "./output/model",
-        "model_decode_fc": ["softmax", "crf", "span"][0],
-        "loss_type": ['lsr', 'focal', 'ce', 'bce', 'bce_with_log'][0],
+        "model_decode_fc": ["softmax", "crf", "span"][2],
+        "loss_type": ['lsr', 'focal', 'ce', 'bce', 'bce_with_log'][3],
         "do_adv": False,
         "adv_epsilon": 1.0,
         "adv_name": 'word_embeddings',
         "crf_learning_rate": 5e-5,
-        "start_learning_rate": 0.0001,
-        "end_learning_rate": 0.0001
+        "start_learning_rate": 0.001,
+        "end_learning_rate": 0.001
     }
 
     model_type = ["bert", "ernie", "albert", "roberta", "bert_www", "xlnet_base", "xlnet_mid",
@@ -199,10 +199,10 @@ if __name__ == '__main__':
         "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
     }
 
-    config_params['model_type'] = model_type[0]
+    config_params['model_type'] = model_type[1]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
     config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
-    config_params['model_save_path'] = "./output/model_{}_{}".format(config_params['model_type'], config_params['model_decode_fc'])
+    config_params['model_save_path'] = "./output/model_{}_{}_0925".format(config_params['model_type'], config_params['model_decode_fc'])
     lc = LanguageModelNerTrain(config_params)
     lc.data_preprocess()
     lc.fit()

@@ -343,6 +343,8 @@ class Trainer:
 
             subjects = [f.subjects for f in features]
 
+            # dataset = [all_input_ids, all_input_mask, all_segment_ids, all_start_ids, all_end_ids, all_input_lens]
+
             eval_dataloader = DataLoader(dataset, batch_size=self.args.train_batch_size)
 
             epoch_iterator = tqdm(eval_dataloader, desc='eval_Iteration')
@@ -361,32 +363,32 @@ class Trainer:
 
                     outputs = self.model(**inputs)
 
-            tmp_eval_loss, start_logits, end_logits = outputs[:3]
+                tmp_eval_loss, start_logits, end_logits = outputs[:3]
 
-            if self.args.n_gpu > 1:
-                tmp_eval_loss = tmp_eval_loss.mean()
+                if self.args.n_gpu > 1:
+                    tmp_eval_loss = tmp_eval_loss.mean()
 
-            tmp_eval_loss += tmp_eval_loss.item()
+                eval_loss += tmp_eval_loss.item()
 
-            nb_eval_steps += 1
+                nb_eval_steps += 1
 
-            if start_preds is None:
-                start_preds = start_logits.detach().cpu().numpy()
-                end_preds = end_logits.detach().cpu().numpy()
+                if start_preds is None:
+                    start_preds = start_logits.detach().cpu().numpy()
+                    end_preds = end_logits.detach().cpu().numpy()
 
-                out_start_ids = inputs['start_positions'].detach().cpu().numpy()
-                out_end_ids = inputs['end_positions'].detach().cpu().numpy()
+                    out_start_ids = inputs['start_positions'].detach().cpu().numpy()
+                    out_end_ids = inputs['end_positions'].detach().cpu().numpy()
 
-                out_lens = batch[5].detach().cpu().numpy()
+                    out_lens = batch[5].detach().cpu().numpy()
 
-            else:
-                start_preds = np.append(start_preds, start_logits.detach().cpu().numpy(), axis=0)
-                end_preds = np.append(end_preds, end_logits.detach().cpu().numpy(), axis=0)
+                else:
+                    start_preds = np.append(start_preds, start_logits.detach().cpu().numpy(), axis=0)
+                    end_preds = np.append(end_preds, end_logits.detach().cpu().numpy(), axis=0)
 
-                out_start_ids = np.append(out_start_ids, inputs['start_positions'].detach().cpu().numpy(), axis=0)
-                out_end_ids = np.append(out_end_ids, inputs['end_positions'].detach().cpu().numpy(), axis=0)
+                    out_start_ids = np.append(out_start_ids, inputs['start_positions'].detach().cpu().numpy(), axis=0)
+                    out_end_ids = np.append(out_end_ids, inputs['end_positions'].detach().cpu().numpy(), axis=0)
 
-                out_lens = np.append(out_lens, batch[5].detach().cpu().numpy())
+                    out_lens = np.append(out_lens, batch[5].detach().cpu().numpy())
 
             # preds = np.argmax(logits.cpu().numpy(), axis=2).tolist()
 
@@ -508,11 +510,15 @@ class Trainer:
                               # "is_test": True}
 
                     outputs = self.model(**inputs)
+                logits = outputs
 
                 if self.args.model_decode_fc == 'softmax':
-                    tmp_eval_loss, logits = outputs[:2]
+                    # tmp_eval_loss, logits = outputs[:2]
+                    logits = outputs
+
                 elif self.args.model_decode_fc == 'crf':
-                    tmp_eval_loss, logits = outputs[:2]
+                    # tmp_eval_loss, logits = outputs[:2]
+                    logits = outputs
                     logits = logits.squeeze(0)
 
                 if preds is None:
@@ -549,6 +555,7 @@ class Trainer:
             all_start_ids = torch.tensor([f.start_ids for f in features], dtype=torch.long)
             all_end_ids = torch.tensor([f.end_ids for f in features], dtype=torch.long)
             all_input_lens = torch.tensor([f.input_len for f in features], dtype=torch.long)
+
             dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_start_ids, all_end_ids,
                                     all_input_lens)
 
@@ -565,19 +572,19 @@ class Trainer:
 
                     outputs = self.model(**inputs)
 
-            start_logits, end_logits = outputs[:2]
+                start_logits, end_logits = outputs[:2]
 
-            if start_preds is None:
-                start_preds = start_logits.detach().cpu().numpy()
-                end_preds = end_logits.detach().cpu().numpy()
+                if start_preds is None:
+                    start_preds = start_logits.detach().cpu().numpy()
+                    end_preds = end_logits.detach().cpu().numpy()
 
-                out_lens = batch[5].detach().cpu().numpy()
+                    out_lens = batch[5].detach().cpu().numpy()
 
-            else:
-                start_preds = np.append(start_preds, start_logits.detach().cpu().numpy(), axis=0)
-                end_preds = np.append(end_preds, end_logits.detach().cpu().numpy(), axis=0)
+                else:
+                    start_preds = np.append(start_preds, start_logits.detach().cpu().numpy(), axis=0)
+                    end_preds = np.append(end_preds, end_logits.detach().cpu().numpy(), axis=0)
 
-                out_lens = np.append(out_lens, batch[5].detach().cpu().numpy())
+                    out_lens = np.append(out_lens, batch[5].detach().cpu().numpy())
 
             start_preds = start_preds.tolist()
             end_preds = end_preds.tolist()
