@@ -141,6 +141,65 @@ def set_seed(args):
     if not args.no_cuda and torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
 
+        
+def change_ner_text_len(data, fuhao=['。'], max_seq_len=125):
+    """
+        data: ([w1, w2, ...], [l1, l2, ...])
+    """
+    result = []
+    rc, rl = [], []
+    for c, l in zip(data[0], data[1]):
+        if c in fuhao:
+            if l == 'O':
+                rc.append(c)
+                rl.append(l)
+                result.append((rc, rl))
+                rc, rl = [], []
+            else:
+                print(l)
+                rc.append(c)
+                rl.append(l)
+        else:
+            rc.append(c)
+            rl.append(l)
+    
+    if len(rc) > 0:
+        result.append((rc, rl))
+    
+    
+    res = []
+    
+    for i in range(len(result)):
+        
+        if len(result[i][0]) <= max_seq_len:
+            res.append(result[i])
+    
+        else:
+            caha0 = result[i]
+            caha = copy.deepcopy(caha0)
+            
+            while True:
+                i = max_seq_len
+                if len(caha[0]) <= max_seq_len:
+                    break
+                
+                while True:
+                    if len(set(caha[1][i-10: i+10])) == 1:
+                        res.append((caha[0][:i], caha[1][:i]))
+                        x = caha[0][i:]
+                        y = caha[1][i:]
+                        caha = copy.deepcopy((x, y))
+                        break
+                    
+                    else:
+                    i -= 1
+            
+            if len(caha[0]) > 0:
+                
+                res.append((caha[0][:i], caha[1][:i]))
+    
+    return res
+
 
 class NerDataPreprocess:
 
@@ -427,8 +486,15 @@ class NerDataPreprocess:
             guid = "%s-%s" % (set_type, i)
 
             text, labels = self.trans_label(d)
+            
+            if len(text) < self.config.max_seq_len:
+                examples.append(InputExample(guid=guid, text=text, label=labels))
+            else:
+                res = change_ner_text_len((text, labels), max_seq_len=self.config.max_seq_len)
+                for r in res:
+                    examples.append(InputExample(guid=guid, text=r[0], label=r[1]))
 
-            examples.append(InputExample(guid=guid, text=text, label=labels))
+#             examples.append(InputExample(guid=guid, text=text, label=labels))
 
         pad_token_label_id = self.config.ignore_index
 
@@ -485,7 +551,26 @@ class NerDataPreprocess:
         return res, labels
 
     def _get_span_data(self, data, label_list, label_id, set_type="train"):
-
+        
+        def chang(text, labels, max_seq_len):
+            if len(text) < max_seq_len:
+                return [(text, labels)]
+            label = ["O"]*len(text)
+            for l in labels:
+                for i in range(l[1], l[2]+1):
+                    label[i] = "I-{}".format(l[0])
+                label[i] = "B-{}".format(l[0])
+            
+            res = change_ner_text_len((text, label), max_seq_len=max_seq_len)
+            res1 = []
+            for r in res:
+                rs1 = jiexi(r[0], r[1])
+                rs2 = []
+                for k11 in rs1:
+                    rs2.append([k11['entity_type'], k11['start_pos'], k11['end_pos]-1])
+                res1.append((r[0], rs2))
+             return res1                                    
+            
         if set_type == 'train':
             random.shuffle(data)
 
@@ -494,8 +579,13 @@ class NerDataPreprocess:
             guid = "%s-%s" % (set_type, i)
 
             text, labels = self.trans_span_label(d)
-
-            examples.append(InputSpanExample(guid=guid, text=text, label=labels))
+            
+            res = chang(text, labels, self.config.max_seq_len-3)
+            
+            for r in res:
+                examples.append(InputSpanExample(guid=guid, text=r[0], label=r[1]))                                               
+                                                                          
+#             examples.append(InputSpanExample(guid=guid, text=text, label=labels))
 
         pad_token_label_id = self.config.ignore_index
 
