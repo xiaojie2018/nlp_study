@@ -157,20 +157,6 @@ class ClassificationDataPreprocess:
                 labels.append(label)
         return contents, labels
 
-    def get_event_data_json(self, file):
-
-        data = []
-        labels = []
-        with open(file, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = eval(line)
-                label = []
-                for e in line['events']:
-                    label.append(e['type'])
-                data.append((line['content'], label))
-                labels += label
-        return data, sorted(list(set(labels)))
-
     def convert_examples_to_features(self, examples, max_seq_len, tokenizer,
                                      cls_token='[CLS]',
                                      sep_token='[SEP]',
@@ -273,8 +259,7 @@ class ClassificationDataPreprocess:
             text = d[0]
             guid = "%s-%s" % (set_type, i)
             label_list = [0.0] * leng_label
-            for label in labels:
-                label_list[label_id[label]] = 1.0
+            label_list[label_id[label]] = 1.0
 
             examples.append(InputExample(guid=guid, text=text, label=label_list))
 

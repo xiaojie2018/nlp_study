@@ -114,8 +114,8 @@ if __name__ == '__main__':
         "model_name_or_path": "E:\\nlp_tools\\bert_models\\bert-base-chinese",
         "seed": 1234,
         "train_batch_size": 16,
-        "eval_batch_size": 16,
-        "max_seq_len": 200,
+        "eval_batch_size": 64,
+        "max_seq_len": 34,
         "learning_rate": 5e-5,
         "num_train_epochs": 10,
         "weight_decay": 0.0,
@@ -125,8 +125,8 @@ if __name__ == '__main__':
         "max_steps": -1,
         "warmup_steps": 0,
         "dropout_rate": 0.1,
-        "logging_steps": 200,
-        "save_steps": 200,
+        "logging_steps": 1000,
+        "save_steps": 1000,
         "no_cuda": False,
         "ignore_index": 0,
         "do_train": True,
@@ -134,14 +134,13 @@ if __name__ == '__main__':
         "is_attention": False,
         "is_lstm": False,
         "is_cnn": False,
-        "train_file_url": "../ccks_3_nolabel_data//train_base.json",
-        "test_file_url": "../ccks_3_nolabel_data//trans_train.json",
+        "train_file_url": "./o_data/ronghe_train_3.txt",
+        "test_file_url": "./o_data/entity_type.txt",
         "dev_file_url": "./o_data/entity_type.txt",
         "unsup_file_url": "./o_data/entity_validation.txt",
         "job_name": "dialog_intent_classification",
         "model_save_path": "./output/model",
-        "is_muti_label": False,
-        "is_uda_model": False,
+        "is_uda_model": True,
         "unsup_ratio": 3,
         "uda_coeff": 1,
         # "tsa": "linear_schedule",
@@ -168,22 +167,21 @@ if __name__ == '__main__':
     # }
     lag_path = '/home/hemei/xjie/bert_models'
     pre_model_path = {
-        "bert": "{}/bert-base-chinese".format(lag_path),  # jindong  bert-base-chinese
-        "ernie": "{}/ERNIE_stable-1.0.1-pytorch".format(lag_path),  # ERNIE_stable-1.0.1-pytorch   ERNIE  ERNIE_1.0_max-len-512-pytorch
-        "albert": "{}/albert_base_v1".format(lag_path),
-        "roberta": "{}/chinese_roberta_wwm_ext_pytorch".format(lag_path),
-        "bert_www": "{}/chinese_wwm_pytorch".format(lag_path),
-        "xlnet_base": "{}/chinese_xlnet_base_pytorch".format(lag_path),
-        "xlnet_mid": "{}/chinese_xlnet_mid_pytorch".format(lag_path),
-        "electra_base_discriminator": "{}/chinese_electra_base_discriminator_pytorch".format(lag_path),
+        "bert": f"{lag_path}/bert-base-chinese",  # jindong  bert-base-chinese
+        "ernie": f"{lag_path}/ERNIE_stable-1.0.1-pytorch",  # ERNIE_stable-1.0.1-pytorch   ERNIE  ERNIE_1.0_max-len-512-pytorch
+        "albert": f"{lag_path}/albert_base_v1",
+        "roberta": f"{lag_path}/chinese_roberta_wwm_ext_pytorch",
+        "bert_www": f"{lag_path}/chinese_wwm_pytorch",
+        "xlnet_base": f"{lag_path}/chinese_xlnet_base_pytorch",
+        "xlnet_mid": f"{lag_path}/chinese_xlnet_mid_pytorch",
+        "electra_base_discriminator": f"{lag_path}/chinese_electra_base_discriminator_pytorch",
         # "electra_base_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_base_generator_pytorch",
-        "electra_small_discriminator": "{}/chinese_electra_small_discriminator_pytorch".format(lag_path),
+        "electra_small_discriminator": f"{lag_path}/chinese_electra_small_discriminator_pytorch",
         # "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
     }
 
-    config_params['model_type'] = model_type[1]
+    config_params['model_type'] = model_type[0]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
-    config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
     config_params['model_save_path'] = "./output/model_{}".format(config_params['model_type'])
     lc = LanguageModelClassificationTrain(config_params)
     lc.data_preprocess()
