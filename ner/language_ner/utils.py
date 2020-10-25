@@ -192,7 +192,7 @@ def change_ner_text_len(data, fuhao=['。'], max_seq_len=125):
                         break
                     
                     else:
-                    i -= 1
+                        i -= 1
             
             if len(caha[0]) > 0:
                 
@@ -567,9 +567,9 @@ class NerDataPreprocess:
                 rs1 = jiexi(r[0], r[1])
                 rs2 = []
                 for k11 in rs1:
-                    rs2.append([k11['entity_type'], k11['start_pos'], k11['end_pos]-1])
+                    rs2.append([k11['entity_type'], k11['start_pos'], k11['end_pos']-1])
                 res1.append((r[0], rs2))
-             return res1                                    
+            return res1
             
         if set_type == 'train':
             random.shuffle(data)
