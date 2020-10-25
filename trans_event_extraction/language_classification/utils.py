@@ -255,7 +255,7 @@ class ClassificationDataPreprocess:
         leng_label = len(label_id)
         examples = []
         for i, d in enumerate(data):
-            labels = d[-1]
+            label = d[-1]
             text = d[0]
             guid = "%s-%s" % (set_type, i)
             label_list = [0.0] * leng_label

@@ -33,13 +33,7 @@ class LanguageModelClassificationTrain(ClassificationDataPreprocess):
             train_data = train_data + train_data1
             test_data, labels2 = train_data, labels1
             dev_data, labels3 = train_data, labels1
-        # train_data, labels1 = self.get_event_data_json(self.config.train_file_url)
-        train_data, labels1 = self.get_event_data_json(self.config.test_file_url)
-        train_data = train_data
-        test_data = train_data
-        dev_data = train_data
-        labels2 = labels1
-        labels3 = labels1
+        # train_data, labels1 = self.get_data_json(self.config.train_file_url)
         # test_data, labels2 = self.get_data_json(self.config.test_file_url)
         # dev_data, labels3 = self.get_data_json(self.config.dev_file_url)
 
@@ -76,16 +70,6 @@ class LanguageModelClassificationTrain(ClassificationDataPreprocess):
             os.makedirs(self.model_save_path, exist_ok=True)
         self.config.model_save_path = self.model_save_path
         self.config.model_dir = self.model_save_path
-
-        vocab_file = os.path.join(self.config.pretrained_model_path, "vocab.txt")
-        out_vocab_file = os.path.join(self.model_save_path, "vocab.txt")
-
-        f_w = open(out_vocab_file, 'w')
-        with open(vocab_file, 'r') as f_r:
-            for line in f_r:
-                f_w.write(line)
-        f_w.close()
-        f_r.close()
 
         with codecs.open(os.path.join(self.model_save_path, '{}_config.json'.format(self.config.task_type)), 'w', encoding='utf-8') as fd:
             json.dump(vars(self.config), fd, indent=4, ensure_ascii=False)
