@@ -162,7 +162,7 @@ class LanguageSoftmaxForNer(BertPreTrainedModel):
         else:
             self.loss_fct = CrossEntropyLoss(ignore_index=0)
 
-        self.init_weights()
+        # self.init_weights()
 
     def forward(self, input_ids, attention_mask, token_type_ids, label=None, is_test=False):
         outputs = self.bert(input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # sequence_output, pooled_output, (hidden_states), (attentions)
@@ -191,7 +191,7 @@ class LanguageSoftmaxForNer(BertPreTrainedModel):
                 active_loss = attention_mask.view(-1) == 1
                 active_logits = logits.view(-1, self.num_labels)[active_loss]
 
-                if self.loss_fct in ['bce', 'bce_with_log']:
+                if self.loss_type in ['bce', 'bce_with_log']:
                     label = label.view(-1)[active_loss]
                     label = label.unsqueeze(1).to("cpu")
                     active_labels = torch.zeros(active_logits.shape[0], self.num_labels).scatter_(1, label, 1).to(self.device1)
@@ -225,7 +225,7 @@ class LanguageCrfForNer(BertPreTrainedModel):
         # self.classifier = nn.Linear(bert_config.hidden_size, self.label_num)
         self.classifier = FCLayer1(bert_config.hidden_size, self.label_num)
         self.crf = CRF(num_tags=self.label_num, batch_first=True)
-        self.init_weights()
+        # self.init_weights()
 
     def forward(self, input_ids, attention_mask, token_type_ids, label=None, is_test=False):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
@@ -297,7 +297,7 @@ class LanguageSpanForNer(BertPreTrainedModel):
         else:
             self.loss_fct = CrossEntropyLoss(ignore_index=0)
 
-        self.init_weights()
+        # self.init_weights()
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, start_positions=None, end_positions=None):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)

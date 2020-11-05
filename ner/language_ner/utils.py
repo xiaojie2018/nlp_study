@@ -165,10 +165,9 @@ def change_ner_text_len(data, fuhao=['。'], max_seq_len=125):
     
     if len(rc) > 0:
         result.append((rc, rl))
-    
-    
+
     res = []
-    
+    qs = 7
     for i in range(len(result)):
         
         if len(result[i][0]) <= max_seq_len:
@@ -184,7 +183,7 @@ def change_ner_text_len(data, fuhao=['。'], max_seq_len=125):
                     break
                 
                 while True:
-                    if len(set(caha[1][i-10: i+10])) == 1:
+                    if len(set(caha[1][i-qs: i+qs])) == 1:
                         res.append((caha[0][:i], caha[1][:i]))
                         x = caha[0][i:]
                         y = caha[1][i:]
@@ -482,7 +481,7 @@ class NerDataPreprocess:
             random.shuffle(data)
 
         examples = []
-        for i, d in enumerate(data):
+        for i, d in tqdm(enumerate(data)):
             guid = "%s-%s" % (set_type, i)
 
             text, labels = self.trans_label(d)
@@ -490,7 +489,7 @@ class NerDataPreprocess:
             if len(text) < self.config.max_seq_len:
                 examples.append(InputExample(guid=guid, text=text, label=labels))
             else:
-                res = change_ner_text_len((text, labels), max_seq_len=self.config.max_seq_len)
+                res = change_ner_text_len((text, labels), max_seq_len=self.config.max_seq_len-3)
                 for r in res:
                     examples.append(InputExample(guid=guid, text=r[0], label=r[1]))
 
@@ -575,7 +574,7 @@ class NerDataPreprocess:
             random.shuffle(data)
 
         examples = []
-        for i, d in enumerate(data):
+        for i, d in tqdm(enumerate(data)):
             guid = "%s-%s" % (set_type, i)
 
             text, labels = self.trans_span_label(d)

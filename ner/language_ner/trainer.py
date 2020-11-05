@@ -483,7 +483,7 @@ class Trainer:
             logger.info(info)
         return results
 
-    def evaluate_test(self, dataset):
+    def evaluate_test(self, dataset, examples):
 
         if self.args.model_decode_fc in ['softmax', 'crf']:
             eval_dataloader = DataLoader(dataset, batch_size=self.args.eval_batch_size)
@@ -537,11 +537,12 @@ class Trainer:
             out_lens = out_lens.tolist()
 
             r_ps = []
-            for x, z, t in zip(preds, out_lens, self.dev_examples):
+            for x, z, t in zip(preds, out_lens, examples):
                 x1 = [self.args.id_label[x[i]] for i in range(1, z-1)]
                 words0 = t.text[:len(x1)]
-                r_p = jiexi(words0, x1)
-                r_ps.append({'text': "".join(t.text), "entities": r_p})
+                # r_p = jiexi(words0, x1)
+                # r_ps.append({'text': "".join(t.text), "entities": r_p})
+                r_ps.append((words0, x1))
 
             return r_ps
 
@@ -591,7 +592,7 @@ class Trainer:
 
             r_ps = []
 
-            for ind, (z, t) in enumerate(zip(out_lens, self.dev_examples)):
+            for ind, (z, t) in enumerate(zip(out_lens, examples)):
 
                 start_preds_i = [start_preds[ind][i] for i in range(1, z - 1)]
                 end_preds_i = [end_preds[ind][i] for i in range(1, z - 1)]

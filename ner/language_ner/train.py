@@ -94,8 +94,8 @@ class LanguageModelNerTrain(NerDataPreprocess):
         vocab_file = os.path.join(self.config.pretrained_model_path, "vocab.txt")
         out_vocab_file = os.path.join(self.model_save_path, "vocab.txt")
 
-        f_w = open(out_vocab_file, 'w')
-        with open(vocab_file, 'r') as f_r:
+        f_w = open(out_vocab_file, 'w', encoding='utf-8')
+        with open(vocab_file, 'r', encoding='utf-8') as f_r:
             for line in f_r:
                 f_w.write(line)
         f_w.close()
@@ -131,8 +131,8 @@ if __name__ == '__main__':
         "task_type": "classification",
         "model_name_or_path": ["E:\\nlp_tools\\bert_models\\bert-base-chinese", "/home/hemei/xjie/bert_models/bert-base-chinese"][1],
         "seed": 42,
-        "train_batch_size": 32,
-        "eval_batch_size": 32,
+        "train_batch_size": 24,
+        "eval_batch_size": 24,
         "max_seq_len": 128,
         "learning_rate": 5e-5,
         "num_train_epochs": 50,
@@ -144,8 +144,8 @@ if __name__ == '__main__':
         "warmup_steps": 0,
         "warmup_proportion": 0.1,
         "dropout_rate": 0.1,
-        "logging_steps": 200,
-        "save_steps": 200,
+        "logging_steps": 100,
+        "save_steps": 100,
         "no_cuda": False,
         "ignore_index": 0,
         "do_train": True,
@@ -153,12 +153,12 @@ if __name__ == '__main__':
         "is_attention": False,
         "is_lstm": False,
         "is_cnn": False,
-        "train_file_url": "./ner_ccks_chip_2020/train.json",
-        "test_file_url": "./ner_ccks_chip_2020/dev.json",
-        "dev_file_url": "./ner_ccks_chip_2020/dev.json",
+        "train_file_url": "./ccf_data/train_all.json",
+        "test_file_url": "./ccf_data/train_all.json",
+        "dev_file_url": "./ccf_data/train_all.json",
         "job_name": "ner",
         "model_save_path": "./output/model",
-        "model_decode_fc": ["softmax", "crf", "span"][2],
+        "model_decode_fc": ["softmax", "crf", "span"][1],
         "loss_type": ['lsr', 'focal', 'ce', 'bce', 'bce_with_log'][3],
         "do_adv": False,
         "adv_epsilon": 1.0,
@@ -172,8 +172,8 @@ if __name__ == '__main__':
                   'electra_base_discriminator', 'electra_small_discriminator']
 
     pre_model_path = {
-        "bert": "E:\\nlp_tools\\bert_models\\bert-base-chinese",
-        "ernie": "E:\\nlp_tools\\ernie_models\\ERNIE",
+        "bert": "D:\\bert_model\\bert-base-chinese",
+        "ernie": "D:\\bert_model\\ernie-1.0",
         "albert": "E:\\nlp_tools\\bert_models\\albert_base_v1",
         "roberta": "E:\\nlp_tools\\bert_models\\chinese_roberta_wwm_ext_pytorch",
         "bert_www": "E:\\nlp_tools\\bert_models\\chinese_wwm_pytorch",
@@ -184,25 +184,26 @@ if __name__ == '__main__':
         "electra_small_discriminator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_discriminator_pytorch",
         # "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
     }
-    lag_path = '/home/hemei/xjie/bert_models'
-    pre_model_path = {
-        "bert": f"{lag_path}/bert-base-chinese",
-        "ernie": f"{lag_path}/ERNIE",
-        "albert": f"{lag_path}/albert_base_v1",
-        "roberta": f"{lag_path}/chinese_roberta_wwm_ext_pytorch",
-        "bert_www": f"{lag_path}/chinese_wwm_pytorch",
-        "xlnet_base": f"{lag_path}/chinese_xlnet_base_pytorch",
-        "xlnet_mid": f"{lag_path}/chinese_xlnet_mid_pytorch",
-        "electra_base_discriminator": f"{lag_path}/chinese_electra_base_discriminator_pytorch",
-        "electra_base_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_base_generator_pytorch",
-        "electra_small_discriminator": f"{lag_path}/chinese_electra_small_discriminator_pytorch",
-        "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
-    }
+    # lag_path = '/home/hemei/xjie/bert_models'
+    # lag_path = "D:\\bert_model"
+    # pre_model_path = {
+    #     "bert": f"{lag_path}\\bert-base-chinese",
+    #     "ernie": f"{lag_path}\\ernie-1.0",
+    #     "albert": f"{lag_path}/albert_base_v1",
+    #     "roberta": f"{lag_path}/chinese_roberta_wwm_ext_pytorch",
+    #     "bert_www": f"{lag_path}/chinese_wwm_pytorch",
+    #     "xlnet_base": f"{lag_path}/chinese_xlnet_base_pytorch",
+    #     "xlnet_mid": f"{lag_path}/chinese_xlnet_mid_pytorch",
+    #     "electra_base_discriminator": f"{lag_path}/chinese_electra_base_discriminator_pytorch",
+    #     "electra_base_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_base_generator_pytorch",
+    #     "electra_small_discriminator": f"{lag_path}/chinese_electra_small_discriminator_pytorch",
+    #     "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
+    # }
 
-    config_params['model_type'] = model_type[1]
+    config_params['model_type'] = model_type[0]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
     config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
-    config_params['model_save_path'] = "./output/model_{}_{}_0925".format(config_params['model_type'], config_params['model_decode_fc'])
+    config_params['model_save_path'] = "./output/model_{}_{}_1029_1".format(config_params['model_type'], config_params['model_decode_fc'])
     lc = LanguageModelNerTrain(config_params)
     lc.data_preprocess()
     lc.fit()
