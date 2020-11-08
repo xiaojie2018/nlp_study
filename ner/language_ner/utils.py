@@ -142,7 +142,7 @@ def set_seed(args):
         torch.cuda.manual_seed_all(args.seed)
 
         
-def change_ner_text_len(data, fuhao=['。'], max_seq_len=125):
+def change_ner_text_len1(data, fuhao=['。'], max_seq_len=125):
     """
         data: ([w1, w2, ...], [l1, l2, ...])
     """
@@ -197,6 +197,83 @@ def change_ner_text_len(data, fuhao=['。'], max_seq_len=125):
                 
                 res.append((caha[0][:i], caha[1][:i]))
     
+    return res
+
+
+def change_ner_text_len(data, fuhao=['。'], max_seq_len=125, sq_len=3):
+    """
+        data: ([w1, w2, ...], [l1, l2, ...])
+    """
+    res = []
+    texts = data[0]
+    labels = data[1]
+    for i in range(0, len(texts), max_seq_len):
+        j = i + max_seq_len
+        text = texts[i: j]
+        label = labels[i: j]
+        if j >= len(texts):
+            if label[0].startswith('I-'):
+                label1 = ['O']
+                flag = False
+                for l in label[1:]:
+                    if (l.startwiths('B-') or l == 'O') and not flag:
+                        flag = True
+                    if flag:
+                        label1.append(l)
+                    else:
+                        label1.append('O')
+                assert len(text) == len(label1)
+                res.append((text, label1))
+            else:
+                res.append((text, label))
+        else:
+            if label[0].startswith('I-'):
+                label1 = ['O']
+                flag = False
+                for l in label[1:]:
+                    if (l.startwiths('B-') or l == 'O') and not flag:
+                        flag = True
+                    if flag:
+                        label1.append(l)
+                    else:
+                        label1.append('O')
+                assert len(text) == len(label1)
+                if labels[j].startswith('I-'):
+                    label1.reverse()
+                    label2 = label1
+                    label3 = ['O']
+                    flag = False
+                    for l in label2[1:]:
+                        if (l.startwiths('B-') or l == 'O') and not flag:
+                            flag = True
+                        if flag:
+                            label3.append(l)
+                        else:
+                            label3.append('O')
+                    label3.reverse()
+                    assert len(text) == len(label3)
+                    res.append((text, label3))
+                else:
+                    res.append((text, label1))
+            else:
+                if labels[j].startswith('I-'):
+                    label.reverse()
+                    label1 = label
+                    label2 = ['O']
+                    flag = False
+                    for l in label1[1:]:
+                        if (l.startwiths('B-') or l == 'O') and not flag:
+                            flag = True
+                        if flag:
+                            label2.append(l)
+                        else:
+                            label2.append('O')
+                    label2.reverse()
+                    assert len(text) == len(label2)
+                    res.append((text, label2))
+                else:
+                    res.append((text, label))
+
     return res
 
 
