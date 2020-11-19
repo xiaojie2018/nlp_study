@@ -131,8 +131,8 @@ if __name__ == '__main__':
         "task_type": "classification",
         "model_name_or_path": ["E:\\nlp_tools\\bert_models\\bert-base-chinese", "/home/hemei/xjie/bert_models/bert-base-chinese"][1],
         "seed": 42,
-        "train_batch_size": 24,
-        "eval_batch_size": 24,
+        "train_batch_size": 32,
+        "eval_batch_size": 32,
         "max_seq_len": 128,
         "learning_rate": 5e-5,
         "num_train_epochs": 50,
@@ -144,8 +144,8 @@ if __name__ == '__main__':
         "warmup_steps": 0,
         "warmup_proportion": 0.1,
         "dropout_rate": 0.1,
-        "logging_steps": 100,
-        "save_steps": 100,
+        "logging_steps": 300,
+        "save_steps": 300,
         "no_cuda": False,
         "ignore_index": 0,
         "do_train": True,
@@ -153,9 +153,9 @@ if __name__ == '__main__':
         "is_attention": False,
         "is_lstm": False,
         "is_cnn": False,
-        "train_file_url": "./ccf_data/train_all.json",
-        "test_file_url": "./ccf_data/train_all.json",
-        "dev_file_url": "./ccf_data/train_all.json",
+        "train_file_url": "./ccf_data/train_add_agg_1118.json",
+        "test_file_url": "./ccf_data/test.json",
+        "dev_file_url": "./ccf_data/test.json",
         "job_name": "ner",
         "model_save_path": "./output/model",
         "model_decode_fc": ["softmax", "crf", "span"][1],
@@ -200,10 +200,10 @@ if __name__ == '__main__':
     #     "electra_small_generator": "E:\\nlp_tools\\electra_models\\chinese_electra_small_generator_pytorch",
     # }
 
-    config_params['model_type'] = model_type[0]
+    config_params['model_type'] = model_type[1]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
     config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
-    config_params['model_save_path'] = "./output/model_{}_{}_1029_1".format(config_params['model_type'], config_params['model_decode_fc'])
+    config_params['model_save_path'] = "./output/model_{}_{}_1118_1".format(config_params['model_type'], config_params['model_decode_fc'])
     lc = LanguageModelNerTrain(config_params)
     lc.data_preprocess()
     lc.fit()

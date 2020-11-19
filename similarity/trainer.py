@@ -215,8 +215,13 @@ class Trainer:
         for i in range(intent_preds.shape[0]):
             p1 = intent_preds[i].tolist()
             o1 = out_intent_label_ids[i].tolist()
+
             intent_preds_list.append(intent_label_map[p1.index(max(p1))])
             out_intent_label_list.append(intent_label_map[o1.index(max(o1))])
+
+            # p11 = 1 if p1[0] > 0.5 else 0
+            # intent_preds_list.append(p11)
+            # out_intent_label_list.append(int(o1))
 
         total_result, report = compute_metrics(intent_preds_list, out_intent_label_list)
 
@@ -250,9 +255,10 @@ class Trainer:
                           'token_type_ids': batch[2],
                           'attention_mask_a': batch[3],
                           'attention_mask_b': batch[4],
-                          'label': batch[5]}
+                          'label': None}
                 outputs = self.model(**inputs)
-                tmp_eval_loss, (intent_logits) = outputs[:2]
+                # tmp_eval_loss, (intent_logits) = outputs[:2]
+                intent_logits = outputs
 
             # Intent prediction
             if intent_preds is None:

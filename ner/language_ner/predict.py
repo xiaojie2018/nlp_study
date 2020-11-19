@@ -126,6 +126,7 @@ if __name__ == '__main__':
     file = "./output/model_ernie_span_1025_2"
     file = "./output/model_ernie_crf_1025_3"
     file = "./output/model_bert_crf_1029_1"
+    file = './output/model_bert_crf_1118_2'
     texts = ['他们也很渴望魔兽比赛。', '为魔兽起到了很好的推动作用。']
     lcp = LanguageModelNerPredict(file)
     res = lcp.predict(texts)
@@ -133,7 +134,7 @@ if __name__ == '__main__':
     # predict.csv
 
     file1 = './ccf_data/eval.json'
-    out_file = './tijiao/predict123.csv'
+    out_file = './tijiao/predict1118_2.csv'
     # ID	Category	Pos_b	Pos_e	Privacy
     predict_data = read_json(file1)
     res = []
@@ -157,4 +158,4 @@ if __name__ == '__main__':
     df['Pos_b'] = [s[2] for s in result]
     df['Pos_e'] = [s[3] for s in result]
     df['Privacy'] = [s[4] for s in result]
-    df.to_csv(out_file, encoding='utf-8')
+    df.to_csv(out_file, encoding='utf-8', index=None)

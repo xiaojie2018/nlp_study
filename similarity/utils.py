@@ -251,7 +251,7 @@ class SimilarityDataPreprocess:
                 logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
                 logger.info("attention_mask: %s" % " ".join([str(x) for x in attention_mask]))
                 logger.info("token_type_ids: %s" % " ".join([str(x) for x in token_type_ids]))
-                logger.info("intent_label: %s " % " ".join([str(x) for x in label_id]))
+                # logger.info("intent_label: %s " % " ".join([str(x) for x in label_id]))
                 logger.info("attention_mask_a: %s" % " ".join([str(x) for x in attention_mask_a]))
                 logger.info("attention_mask_b: %s" % " ".join([str(x) for x in attention_mask_b]))
 
@@ -285,6 +285,7 @@ class SimilarityDataPreprocess:
             label_list = [0.0] * leng_label
             # for label in labels:
             label_list[label_id[labels]] = 1.0
+            # label_list = float(labels)
 
             examples.append(InputExample(guid=guid, text=text, text_b=textb, label=label_list))
 

@@ -34,7 +34,7 @@ def get_data(query_data, reply_data, output_file):
         l = 0
         if len(d) > 3:
             l = int(d[3])
-        data.append({"text1": q, "text2": r, "label": l})
+        data.append({"id1": d[0], 'id2': d[1], "text1": q, "text2": r, "label": l})
 
     f = open(output_file, 'w', encoding='utf-8')
     for d in data:
@@ -82,17 +82,17 @@ def split_train_test(file, train_file, test_file):
 
 if __name__ == '__main__':
 
-    flag = ['train', 'test'][0]
+    flag = ['train', 'test'][1]
 
     query_file = "D:\\bishai\\data\\ccf2020\\房产行业聊天问答匹配\\{}\\{}.query.tsv".format(flag, flag)
     reply_file = "D:\\bishai\\data\\ccf2020\\房产行业聊天问答匹配\\{}\\{}.reply.tsv".format(flag, flag)
 
-    # query_data = read_query_file(query_file)
-    # reply_data = read_reply_file(reply_file)
+    query_data = read_query_file(query_file)
+    reply_data = read_reply_file(reply_file)
 
     output_file = "D:\\bishai\\data\\ccf2020\\房产行业聊天问答匹配\\{}\\{}.json".format(flag, flag)
-    # get_data(query_data, reply_data, output_file)
+    get_data(query_data, reply_data, output_file)
 
-    train_file = "D:\\bishai\\data\\ccf2020\\房产行业聊天问答匹配\\{}\\{}_train.json".format(flag, flag)
-    test_file = "D:\\bishai\\data\\ccf2020\\房产行业聊天问答匹配\\{}\\{}_test.json".format(flag, flag)
-    split_train_test(output_file, train_file, test_file)
+    # train_file = "D:\\bishai\\data\\ccf2020\\房产行业聊天问答匹配\\{}\\{}_train.json".format(flag, flag)
+    # test_file = "D:\\bishai\\data\\ccf2020\\房产行业聊天问答匹配\\{}\\{}_test.json".format(flag, flag)
+    # split_train_test(output_file, train_file, test_file)

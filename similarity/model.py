@@ -131,6 +131,28 @@ class FCLayer1(nn.Module):
         return self.linear(x)
 
 
+class NTNLayer(nn.Module):
+    def __init__(self, input_dim, output_k=2, dropout_rate=0., use_activation=True):
+        super(NTNLayer, self).__init__()
+        self.tanh = nn.Tanh()
+        self.bilinear = nn.Bilinear(input_dim, input_dim, output_k, bias=False)
+        self.linear = nn.Linear(2 * input_dim, output_k)
+        self.dropout = nn.Dropout(dropout_rate)
+        self.use_activation = use_activation
+        # self.linear1 = nn.Linear(output_k, 1, bias=False)
+        # self.softmax = nn.Softmax(1)
+
+    def forward(self, x1, x2):
+        x1 = self.dropout(x1)
+        x2 = self.dropout(x2)
+        o1 = self.bilinear(x1, x2)
+        o2 = self.linear(torch.cat([x1, x2], dim=-1))
+        o = self.tanh(o1 + o2)
+        # o = self.linear1(o)
+        # o = self.softmax(o)
+        return o
+
+
 class ClassificationModel(BertPreTrainedModel):
 
     def __init__(self, model_dir, args):
@@ -149,7 +171,9 @@ class ClassificationModel(BertPreTrainedModel):
         # attention
         # self.att = SelfAttention(sentence_num=34, key_size=bert_config.hidden_size, hidden_size=bert_config.hidden_size)
 
-        self.label_classifier = FCLayer_softmax(bert_config.hidden_size*3, self.label_num, args.dropout_rate)
+        self.ntn_layer = NTNLayer(bert_config.hidden_size, int(bert_config.hidden_size/2), args.dropout_rate)
+
+        self.label_classifier = FCLayer_softmax(bert_config.hidden_size + int(bert_config.hidden_size/2), self.label_num, args.dropout_rate)
 
         self.cls_fc_layer = FCLayer(bert_config.hidden_size, bert_config.hidden_size, args.dropout_rate)
         self.entity_fc_layer = FCLayer(bert_config.hidden_size, bert_config.hidden_size, args.dropout_rate)
@@ -199,8 +223,11 @@ class ClassificationModel(BertPreTrainedModel):
         e1_h = self.entity_fc_layer(e1_h)
         e2_h = self.entity_fc_layer1(e2_h)
 
+        o1 = self.ntn_layer(e1_h, e2_h)
         # Concat -> fc_layer
-        concat_h = torch.cat([pooled_output, e1_h, e2_h], dim=-1)
+        # concat_h = torch.cat([pooled_output, e1_h, e2_h], dim=-1)
+        # concat_h = torch.cat([e1_h, e2_h], dim=-1)
+        concat_h = torch.cat([pooled_output, o1], dim=-1)
         logits = self.label_classifier(concat_h)
 
         outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here

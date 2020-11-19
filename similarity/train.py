@@ -33,6 +33,7 @@ class LanguageModelSimilarityTrain(SimilarityDataPreprocess):
 
         # labels = sorted(list(set(labels1 + labels2 + labels3)))
         labels = [0, 1]
+        # labels = [1]
 
         self.labels = labels
         self.config.num_classes = len(labels)
@@ -90,8 +91,8 @@ if __name__ == '__main__':
         "task_type": "classification",
         "model_name_or_path": "E:\\nlp_tools\\bert_models\\bert-base-chinese",
         "seed": 1234,
-        "train_batch_size": 24,
-        "eval_batch_size": 24,
+        "train_batch_size": 16,
+        "eval_batch_size": 16,
         "max_seq_len": 168,
         "learning_rate": 5e-5,
         "num_train_epochs": 20,
@@ -102,8 +103,8 @@ if __name__ == '__main__':
         "max_steps": -1,
         "warmup_steps": 0,
         "dropout_rate": 0.1,
-        "logging_steps": 450,
-        "save_steps": 450,
+        "logging_steps": 500,
+        "save_steps": 500,
         "no_cuda": False,
         "ignore_index": 0,
         "train_file_url": "D:\\bishai\\data\\ccf2020\\房产行业聊天问答匹配\\train\\train_train.json",
@@ -145,7 +146,7 @@ if __name__ == '__main__':
     config_params['model_type'] = model_type[1]
     config_params['model_name_or_path'] = pre_model_path[config_params['model_type']]
     config_params['pretrained_model_path'] = pre_model_path[config_params['model_type']]
-    config_params['model_save_path'] = "./output/model_{}_1109_1".format(config_params['model_type'])
+    config_params['model_save_path'] = "./output/model_{}_1115_1".format(config_params['model_type'])
     lc = LanguageModelSimilarityTrain(config_params)
     lc.data_preprocess()
     lc.fit()

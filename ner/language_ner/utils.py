@@ -216,7 +216,7 @@ def change_ner_text_len(data, fuhao=['。'], max_seq_len=125, sq_len=3):
                 label1 = ['O']
                 flag = False
                 for l in label[1:]:
-                    if (l.startwiths('B-') or l == 'O') and not flag:
+                    if (l.startswith('B-') or l == 'O') and not flag:
                         flag = True
                     if flag:
                         label1.append(l)
@@ -231,7 +231,7 @@ def change_ner_text_len(data, fuhao=['。'], max_seq_len=125, sq_len=3):
                 label1 = ['O']
                 flag = False
                 for l in label[1:]:
-                    if (l.startwiths('B-') or l == 'O') and not flag:
+                    if (l.startswith('B-') or l == 'O') and not flag:
                         flag = True
                     if flag:
                         label1.append(l)
@@ -244,7 +244,7 @@ def change_ner_text_len(data, fuhao=['。'], max_seq_len=125, sq_len=3):
                     label3 = ['O']
                     flag = False
                     for l in label2[1:]:
-                        if (l.startwiths('B-') or l == 'O') and not flag:
+                        if (l.startswith('B-') or l == 'O') and not flag:
                             flag = True
                         if flag:
                             label3.append(l)
@@ -262,7 +262,7 @@ def change_ner_text_len(data, fuhao=['。'], max_seq_len=125, sq_len=3):
                     label2 = ['O']
                     flag = False
                     for l in label1[1:]:
-                        if (l.startwiths('B-') or l == 'O') and not flag:
+                        if (l.startswith('B-') or l == 'O') and not flag:
                             flag = True
                         if flag:
                             label2.append(l)
